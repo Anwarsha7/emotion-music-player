@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password - AuraTune</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* You can copy the styles from login.html or register.html */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: linear-gradient(135deg, #6e8efb, #a777e3); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { background-color: rgba(255, 255, 255, 0.9); border-radius: 15px; box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); width: 100%; max-width: 450px; padding: 35px; }
+        h2 { text-align: center; margin-bottom: 25px; color: #333; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #444; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn-submit { width: 100%; padding: 14px; background: linear-gradient(to right, #6e8efb, #a777e3); border: none; border-radius: 8px; color: white; font-weight: 600; font-size: 16px; cursor: pointer; }
+        .form-error { color: #dc3545; font-size: 0.8rem; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Set Your New Password</h2>
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.password.label }}
+                {{ form.password(placeholder="Enter your new password") }}
+                {% if form.password.errors %}
+                    <div class="form-error">
+                        {% for error in form.password.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.confirm_password.label }}
+                {{ form.confirm_password(placeholder="Confirm your new password") }}
+                {% if form.confirm_password.errors %}
+                    <div class="form-error">
+                        {% for error in form.confirm_password.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.submit(class="btn-submit") }}
+            </div>
+        </form>
+    </div>
+</body>
+</html>

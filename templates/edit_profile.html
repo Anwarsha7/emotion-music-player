@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - Emotion Music Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 450px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .header {
+            background: linear-gradient(to right, #6e8efb, #a777e3);
+            color: white;
+            text-align: center;
+            padding: 25px 20px;
+        }
+        
+        .header h2 {
+            font-weight: 600;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .form-container {
+            padding: 25px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #444;
+            font-size: 14px;
+        }
+        
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 38px;
+            color: #a777e3;
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 15px 12px 40px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #6e8efb;
+            box-shadow: 0 0 0 2px rgba(110, 142, 251, 0.2);
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, #6e8efb, #a777e3);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(110, 142, 251, 0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(110, 142, 251, 0.4);
+        }
+        
+        .dashboard-link {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .dashboard-link a {
+            color: #6e8efb;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .dashboard-link a:hover {
+            color: #a777e3;
+            text-decoration: underline;
+        }
+        
+        .messages {
+            padding: 10px 25px;
+            text-align: center;
+        }
+        
+        .danger, .success {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .success { color: #28a745; }
+        .danger { color: #dc3545; }
+        
+    </style>
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Edit Your Profile</h2>
+        </div>
+        
+        <form method="POST">
+            <div class="form-container">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" name="username" value="{{ user.username }}" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" name="email" value="{{ user.email }}" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password">New Password</label>
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" name="password" placeholder="Leave blank to keep current">
+                </div>
+                
+                <div class="input-group">
+                    <label for="language">Default Language</label>
+                    <i class="fas fa-globe"></i>
+                    <select id="language" name="language" required>
+                        <option value="english" {% if user.default_language == 'english' %}selected{% endif %}>English</option>
+                        <option value="malayalam" {% if user.default_language == 'malayalam' %}selected{% endif %}>Malayalam</option>
+                        <option value="hindi" {% if user.default_language == 'hindi' %}selected{% endif %}>Hindi</option>
+                        <option value="tamil" {% if user.default_language == 'tamil' %}selected{% endif %}>Tamil</option>
+                    </select>
+                </div>
+                
+                <button type="submit">Save Changes</button>
+                
+                <div class="dashboard-link">
+                    <p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+                </div>
+            </div>
+        </form>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            <div class="messages">
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endwith %}
+    </div>
+</body>
+</html>

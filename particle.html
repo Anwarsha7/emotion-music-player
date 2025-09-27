@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #070711 0%, #0a0a14 100%);
+            color: #f0f0f0;
+            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 10;
+            padding: 2rem;
+            background: rgba(10, 10, 20, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #6e3bff, #ff3bbd, #3bffec);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        p {
+            color: #9aa2b2;
+            margin-bottom: 2rem;
+        }
+
+        /* Wave Animation */
+        .wave-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 35%;
+            background: linear-gradient(90deg, 
+                rgba(110, 59, 255, 0.2) 0%, 
+                rgba(255, 59, 189, 0.15) 35%, 
+                rgba(59, 255, 236, 0.1) 100%);
+            border-radius: 45% 47% 42% 54%;
+            animation: waveAnimation 15s linear infinite;
+            transform-origin: center bottom;
+        }
+
+        .wave:nth-child(1) {
+            animation-duration: 15s;
+            opacity: 0.5;
+            height: 30%;
+            background: linear-gradient(90deg, 
+                rgba(110, 59, 255, 0.25) 0%, 
+                rgba(255, 59, 189, 0.2) 35%, 
+                rgba(59, 255, 236, 0.15) 100%);
+        }
+
+        .wave:nth-child(2) {
+            animation-duration: 12s;
+            animation-direction: reverse;
+            opacity: 0.3;
+            height: 25%;
+            background: linear-gradient(90deg, 
+                rgba(59, 255, 236, 0.2) 0%, 
+                rgba(110, 59, 255, 0.15) 35%, 
+                rgba(255, 59, 189, 0.1) 100%);
+        }
+
+        .wave:nth-child(3) {
+            animation-duration: 18s;
+            opacity: 0.2;
+            height: 20%;
+            background: linear-gradient(90deg, 
+                rgba(255, 59, 189, 0.15) 0%, 
+                rgba(59, 255, 236, 0.1) 35%, 
+                rgba(110, 59, 255, 0.05) 100%);
+        }
+
+        @keyframes waveAnimation {
+            0% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(-25%) rotate(2deg);
+            }
+            100% {
+                transform: translateX(-50%) rotate(0deg);
+            }
+        }
+
+        /* Aurora Background */
+        .aurora-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            opacity: 0.6;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(110, 59, 255, 0.5) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(255, 59, 189, 0.5) 0%, transparent 50%),
+                radial-gradient(ellipse at 40% 40%, rgba(59, 255, 236, 0.5) 0%, transparent 50%);
+            filter: blur(40px);
+            animation: auroraMove 20s ease-in-out infinite;
+        }
+
+        @keyframes auroraMove {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+        }
+
+        /* Controls */
+        .controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: #f0f0f0;
+            backdrop-filter: blur(10px);
+        }
+
+        button:hover {
+            background: linear-gradient(90deg, #6e3bff, #ff3bbd);
+            transform: translateY(-3px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 1.5rem;
+                margin: 1rem;
+            }
+            
+            .wave {
+                height: 20%;
+            }
+            
+            .wave:nth-child(1) {
+                height: 18%;
+            }
+            
+            .wave:nth-child(2) {
+                height: 15%;
+            }
+            
+            .wave:nth-child(3) {
+                height: 12%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="aurora-bg"></div>
+    
+    <div class="wave-container">
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+   
+    </div>
+
+    <script>
+        let isPlaying = true;
+        
+        function toggleAnimation() {
+            const waves = document.querySelectorAll('.wave');
+            if (isPlaying) {
+                waves.forEach(wave => {
+                    wave.style.animationPlayState = 'paused';
+                });
+            } else {
+                waves.forEach(wave => {
+                    wave.style.animationPlayState = 'running';
+                });
+            }
+            isPlaying = !isPlaying;
+        }
+        
+        function changeSpeed(multiplier) {
+            const waves = document.querySelectorAll('.wave');
+            waves.forEach(wave => {
+                const currentDuration = parseFloat(getComputedStyle(wave).animationDuration);
+                wave.style.animationDuration = `${currentDuration * multiplier}s`;
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraTune - Music That Feels What You Feel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+    :root {
+      --dark-bg: #0a0a14;
+      --darker-bg: #070711;
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --primary: #6e3bff;
+      --secondary: #ff3bbd;
+      --accent: #3bffec;
+      --text: #f0f0f0;
+      --text-muted: #9aa2b2;
+      --neon-gradient: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #011627; 
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--neon-gradient);
+      border-radius: 5px;
+    }
+
+    #glyph-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .glyph {
+        position: absolute;
+        bottom: -50px;
+        font-size: 20px;
+        color: #20E3B2;
+        opacity: 0;
+        animation: floatUp 15s linear infinite;
+        text-shadow: 0 0 8px rgba(32, 227, 178, 0.7);
+    }
+
+    @keyframes floatUp {
+        0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+        25%, 75% { opacity: 0.7; }
+        100% { transform: translateY(-120vh) translateX(50px) rotate(360deg); opacity: 0; }
+    }
+    
+    .vision-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2.5rem 3rem;
+      text-align: center;
+    }
+
+    .team-info { margin-bottom: 2rem; }
+    .team-avatar { font-size: 4rem; color: var(--accent); margin-bottom: 1rem; }
+    .team-info h3 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .team-info p { color: var(--text-muted); font-size: 1rem; }
+
+    .vision-text blockquote {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: var(--text);
+      font-style: italic;
+      border-left: 3px solid var(--primary);
+      padding-left: 1.5rem;
+      text-align: left;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 5%;
+      background: rgba(10, 10, 20, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--glass-border);
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    nav.scrolled {
+      padding: 1rem 5%;
+      background: rgba(7, 7, 17, 0.95);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 1.8rem;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .logo i { font-size: 2rem; }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -5px;
+      left: 0;
+      background: var(--neon-gradient);
+      transition: width 0.3s ease;
+    }
+    .nav-links a:hover::after { width: 100%; }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-cta { display: flex; gap: 1rem; }
+
+    .btn {
+      padding: 0.8rem 1.8rem;
+      border-radius: 50px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .btn-primary {
+      background: var(--neon-gradient);
+      color: white;
+      border: none;
+      box-shadow: 0 5px 15px rgba(110, 59, 255, 0.4);
+      animation: pulse 2s infinite;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(110, 59, 255, 0.6);
+      animation: none;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .btn-outline:hover { background: var(--primary); color: white; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 5px 15px rgba(110, 59, 255, 0.4); }
+      50% { box-shadow: 0 5px 20px rgba(110, 59, 255, 0.8); }
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 0 5%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-content { max-width: 650px; z-index: 2; }
+    .hero h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 800;
+      font-size: 3.5rem;
+      line-height: 1.2;
+      margin-bottom: 1.5rem;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 20px rgba(110, 59, 255, 0.5);
+    }
+
+    .hero p { font-size: 1.2rem; margin-bottom: 2.5rem; color: var(--text-muted); }
+    .hero-buttons { display: flex; gap: 1rem; margin-bottom: 3rem; }
+    .hero-image {
+      position: absolute;
+      right: 5%;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 50%;
+      max-width: 600px;
+      z-index: 1;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--glass-border);
+    }
+    .hero-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .stats { display: flex; gap: 2rem; margin-top: 3rem; }
+    .stat-item { display: flex; flex-direction: column; }
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .stat-label { font-size: 0.9rem; color: var(--text-muted); }
+
+    .section { padding: 6rem 5%; }
+    .section-title { text-align: center; margin-bottom: 4rem; }
+    .section-title h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .section-title p { font-size: 1.2rem; max-width: 600px; margin: 0 auto; color: var(--text-muted); }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+
+    .feature-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .feature-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--neon-gradient);
+      border-radius: 50%;
+      font-size: 2rem;
+      color: white;
+    }
+
+    .feature-card h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .feature-card p { color: var(--text-muted); }
+
+    .how-it-works { background: rgba(0, 0, 0, 0.2); }
+    .process {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 2rem;
+      position: relative;
+    }
+    .process-step { flex: 1; min-width: 250px; text-align: center; position: relative; }
+    .step-number {
+      width: 60px;
+      height: 60px;
+      background: var(--neon-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 auto 1.5rem;
+      color: white;
+    }
+
+    .process-step h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .process-step p { color: var(--text-muted); }
+    .process-arrow { font-size: 2rem; color: var(--primary); margin: 2rem 0; animation: pulse 2s infinite; }
+
+    .cta {
+      text-align: center;
+      padding: 8rem 5%;
+      background: linear-gradient(to bottom, var(--darker-bg), #0c0c1a);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3rem;
+      margin-bottom: 1.5rem;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .cta p { font-size: 1.2rem; max-width: 700px; margin: 0 auto 2rem; color: var(--text-muted); }
+
+    footer { background: #070711; padding: 4rem 5% 2rem; }
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    .footer-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 800;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      background: var(--neon-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .footer-about p { color: var(--text-muted); margin-bottom: 1.5rem; }
+    .social-links { display: flex; gap: 1rem; }
+    .social-links a {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      color: var(--text);
+    }
+    .social-links a:hover { background: var(--neon-gradient); transform: translateY(-3px); }
+    .footer-links h3 { font-size: 1.2rem; margin-bottom: 1.5rem; }
+    .footer-links ul { list-style: none; }
+    .footer-links li { margin-bottom: 0.8rem; }
+    .footer-links a { color: var(--text-muted); text-decoration: none; transition: all 0.3s ease; }
+    .footer-links a:hover { color: var(--accent); }
+    .copyright {
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid var(--glass-border);
+      color: var(--text-muted);
+    }
+
+    .menu-toggle { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; z-index: 1001; }
+    .nav-cta-mobile { display: none; }
+    
+    .contact-container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 3rem;
+      transition: all 0.3s ease;
+    }
+    .contact-container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .contact-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      width: 100%;
+    }
+    .form-group {
+      position: relative;
+    }
+    .contact-form input,
+    .contact-form textarea {
+      width: 100%;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Poppins', sans-serif;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+    .contact-form input::placeholder,
+    .contact-form textarea::placeholder {
+        color: var(--text-muted);
+    }
+    .contact-form input:focus,
+    .contact-form textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(110, 59, 255, 0.5);
+    }
+    .contact-form textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+    .contact-form .btn {
+      align-self: center;
+    }
+
+    .flash-messages {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+    .flash {
+        padding: 1rem;
+        border-radius: 10px;
+        font-weight: 500;
+        text-align: center;
+        border: 1px solid transparent;
+    }
+    .flash.success {
+        background-color: rgba(59, 255, 236, 0.15);
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+    .flash.danger {
+        background-color: rgba(255, 59, 189, 0.15);
+        color: var(--secondary);
+        border-color: var(--secondary);
+    }
+    
+    /* --- NEW CODE FOR PRIVACY STATEMENT --- */
+    .privacy-note {
+        width: 100%;
+        margin-top: 3rem;
+        padding: 1.5rem;
+        background: rgba(59, 255, 236, 0.1);
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        text-align: left;
+    }
+    .privacy-note i {
+        font-size: 2rem;
+        color: var(--accent);
+    }
+    
+    /* --- NEW CODE FOR BACK TO TOP BUTTON --- */
+    .back-to-top-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        background: var(--neon-gradient);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        text-decoration: none;
+        z-index: 100;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.4s ease;
+    }
+    .back-to-top-btn.visible {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+
+    @media (max-width: 992px) {
+      .hero { flex-direction: column; justify-content: center; text-align: center; padding-top: 6rem; }
+      .hero-content { margin: 0 auto; }
+      .hero-buttons { justify-content: center; }
+      .hero-image { position: relative; transform: none; width: 100%; max-width: 500px; margin: 3rem auto 0; }
+      .stats { justify-content: center; }
+      .process-arrow { transform: rotate(90deg); margin: 1rem 0; }
+    }
+
+    @media (max-width: 768px) {
+      .menu-toggle { display: block; }
+      .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 70%;
+        max-width: 300px;
+        height: 100vh;
+        background: rgba(10, 10, 20, 0.95);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2.5rem;
+        transition: right 0.4s ease-in-out;
+      }
+      .nav-links.active { right: 0; }
+      .nav-links a { font-size: 1.2rem; }
+      #nav-cta-desktop { display: none; }
+      .nav-cta-mobile { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem; align-items: center; }
+      .nav-cta-mobile .btn { width: 150px; text-align: center; justify-content: center; }
+      
+      .hero h1 { font-size: 2.5rem; }
+      .hero p { font-size: 1rem; }
+      .section-title h2 { font-size: 2rem; }
+      .cta h2 { font-size: 2.2rem; }
+      .stats { flex-direction: column; gap: 1rem; }
+      .hero-buttons { flex-direction: column; }
+    }
+  </style>
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+</head>
+<body>
+    <div id="glyph-container"></div>
+    
+    <nav>
+      <a href="#" class="logo">
+        <i class="fas fa-wave-square"></i> AuraTune
+      </a>
+      
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#vision">About Us</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li class="nav-cta-mobile">
+            <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
+        </li>
+      </ul>
+      
+      <div class="nav-cta" id="nav-cta-desktop">
+        <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
+      </div>
+
+      <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation menu">
+          <i class="fas fa-bars"></i>
+      </button>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content" data-aos="fade-right" data-aos-duration="1000">
+            <h1>Music That Feels What You Feel</h1>
+            <p>Experience the future of music with AI-powered emotion detection that creates personalized playlists based on your current mood.</p>
+            
+            <div class="hero-buttons">
+                <a href="{{ url_for('register') }}" class="btn btn-primary">
+                <i class="fas fa-play"></i> Try It Free
+                </a>
+                <a href="#how-it-works" class="btn btn-outline">
+                <i class="fas fa-info-circle"></i> Learn More
+                </a>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item" data-aos="fade-up" data-aos-delay="200">
+                <div class="stat-value">4+</div>
+                <div class="stat-label">Languages Supported</div>
+                </div>
+                <div class="stat-item" data-aos="fade-up" data-aos-delay="400">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Music Modes</div>
+                </div>
+                <div class="stat-item" data-aos="fade-up" data-aos-delay="600">
+                <div class="stat-value">Real-Time</div>
+                <div class="stat-label">Emotion Analysis</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="hero-image" data-aos="fade-left" data-aos-duration="1000">
+            <img src="{{ url_for('static', filename='hero-soundwave.png') }}" alt="Vibrant glowing soundwave representing AI music analysis">
+        </div>
+    </section>
+
+    <section class="section" id="features">
+        <div class="section-title" data-aos="fade-up">
+        <h2>Powerful Features</h2>
+        <p>Discover how AuraTune revolutionizes your music experience</p>
+        </div>
+        
+        <div class="features">
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon"><i class="fas fa-brain"></i></div>
+            <h3>AI Emotion Detection</h3>
+            <p>Our advanced AI analyzes your facial expressions in real-time to accurately determine your emotional state.</p>
+        </div>
+        
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon"><i class="fas fa-music"></i></div>
+            <h3>Dynamic Playlists</h3>
+            <p>Receive perfectly curated playlists from local files or Spotify that adapt to your mood changes on the fly.</p>
+        </div>
+        
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="600">
+            <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+            <h3>Mood Analytics</h3>
+            <p>Track your emotional patterns over time on your personal dashboard and see how music influences your wellbeing.</p>
+        </div>
+        </div>
+    </section>
+
+    <section class="section how-it-works" id="how-it-works">
+        <div class="section-title" data-aos="fade-up">
+        <h2>How It Works</h2>
+        <p>Getting started with AuraTune is simple and intuitive</p>
+        </div>
+        
+        <div class="process">
+            <div class="process-step" data-aos="fade-up" data-aos-delay="200">
+                <div class="step-number">1</div>
+                <h3>Sign Up</h3>
+                <p>Create your free AuraTune account to unlock your personalized dashboard and save your preferences.</p>
+            </div>
+            
+            <div class="process-arrow" data-aos="fade-up" data-aos-delay="400">
+                <i class="fas fa-arrow-right"></i>
+            </div>
+            
+            <div class="process-step" data-aos="fade-up" data-aos-delay="600">
+                <div class="step-number">2</div>
+                <h3>Detect Mood</h3>
+                <p>Launch the player and allow camera access for our AI to analyze your facial expressions and detect your emotion.</p>
+            </div>
+            
+            <div class="process-arrow" data-aos="fade-up" data-aos-delay="800">
+                <i class="fas fa-arrow-right"></i>
+            </div>
+            
+            <div class="process-step" data-aos="fade-up" data-aos-delay="1000">
+                <div class="step-number">3</div>
+                <h3>Enjoy Music</h3>
+                <p>Sit back and enjoy music that perfectly matches your current emotional state, automatically.</p>
+            </div>
+            <div class="privacy-note" data-aos="fade-up" data-aos-delay="1200">
+                <i class="fas fa-shield-alt"></i>
+                <p><strong>Your Privacy is Our Priority:</strong> All emotion analysis is done in real-time on your device. We never store or transmit your camera footage.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="vision">
+        <div class="section-title" data-aos="fade-up">
+        <h2>About Us</h2>
+        <p>The final year team behind AuraTune</p>
+        </div>
+        
+        <div class="vision-container" data-aos="fade-up" data-aos-delay="200">
+            <div class="team-info">
+                <div class="team-avatar"><i class="fas fa-users"></i></div>
+                <h3>Final Year Project Team</h3>
+                <p>Team Members: Jazeera, Rishana, Ihsan, Anwarsha</p>
+            </div>
+            <div class="vision-text">
+                <blockquote>
+                "As final year students passionate about the intersection of AI and user experience, we created AuraTune to explore how technology could connect more deeply with human emotion. This project is the culmination of our collaborative effort to build a smarter, more intuitive music player. Our goal was to design an application that doesn't just play songs, but listens back, creating a truly personalized soundtrack for any mood. We're proud to present AuraTune as our final year project."
+                </blockquote>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="contact">
+        <div class="section-title" data-aos="fade-up">
+            <h2>Contact Us</h2>
+            <p>Have a question or feedback? We'd love to hear from you.</p>
+        </div>
+        <div class="contact-container" data-aos="fade-up" data-aos-delay="200">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <div class="flash-messages">
+                  {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+            <form action="{{ url_for('submit_feedback') }}" method="POST" class="contact-form">
+                <div class="form-group">
+                    <input type="text" name="name" placeholder="Your Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" name="email" placeholder="Your Email" required>
+                </div>
+                <div class="form-group">
+                    <textarea name="message" rows="5" placeholder="Your Message" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Send Message <i class="fas fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div data-aos="fade-up">
+        <h2>Ready to Transform Your Music Experience?</h2>
+        <p>Sign up now and discover the power of emotion-based music today. It's free!</p>
+        <a href="{{ url_for('register') }}" class="btn btn-primary">
+            Get Started Now <i class="fas fa-rocket"></i>
+        </a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-about">
+                <div class="footer-logo">
+                    <i class="fas fa-wave-square"></i> AuraTune
+                </div>
+                <p>Revolutionizing the way you experience music through AI-powered emotion detection.</p>
+                <div class="social-links">
+                    <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+        
+            <div class="footer-links">
+                <h3>Navigation</h3>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How It Works</a></li>
+                    <li><a href="#vision">About Us</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </div>
+        
+            <div class="footer-links">
+                <h3>Get Started</h3>
+                <ul>
+                    <li><a href="{{ url_for('login') }}">Login</a></li>
+                    <li><a href="{{ url_for('register') }}">Register</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="copyright">
+            <p>&copy; 2025 AuraTune. All rights reserved. Final Year Project.</p>
+        </div>
+    </footer>
+    
+    <a href="#" class="back-to-top-btn" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  
+    <script>
+        AOS.init({ duration: 1000, once: true, offset: 100 });
+
+        const menuToggle = document.getElementById('menu-toggle');
+        const navLinks = document.getElementById('nav-links');
+
+        if (menuToggle && navLinks) {
+            menuToggle.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+                const icon = menuToggle.querySelector('i');
+                icon.classList.toggle('fa-bars');
+                icon.classList.toggle('fa-times');
+            });
+
+            navLinks.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (navLinks.classList.contains('active')) {
+                        navLinks.classList.remove('active');
+                        menuToggle.querySelector('i').classList.add('fa-bars');
+                        menuToggle.querySelector('i').classList.remove('fa-times');
+                    }
+                });
+            });
+        }
+
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const glyphContainer = document.getElementById('glyph-container');
+            const glyphs = ['♪', '♫', '♯', '♭', '♩', '♮'];
+            const numberOfGlyphs = 30;
+
+            if (glyphContainer) {
+                for (let i = 0; i < numberOfGlyphs; i++) {
+                    const glyph = document.createElement('div');
+                    glyph.classList.add('glyph');
+                    glyph.innerText = glyphs[Math.floor(Math.random() * glyphs.length)];
+                    
+                    glyph.style.left = Math.random() * 100 + 'vw';
+                    glyph.style.fontSize = Math.random() * 15 + 10 + 'px';
+                    glyph.style.animationDuration = Math.random() * 10 + 15 + 's';
+                    glyph.style.animationDelay = Math.random() * 15 + 's';
+                    
+                    glyphContainer.appendChild(glyph);
+                }
+            }
+        });
+
+        // --- NEW JAVASCRIPT FOR BACK TO TOP BUTTON ---
+        const backToTopButton = document.querySelector('.back-to-top-btn');
+        if (backToTopButton) {
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    backToTopButton.classList.add('visible');
+                } else {
+                    backToTopButton.classList.remove('visible');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

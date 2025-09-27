@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vitals Music Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body {
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+            background: linear-gradient(-45deg, #ffadad, #ffd6a5, #caffbf, #9bf6ff, #c3a0ff, #ffafbd);
+            background-size: 1600% 1600%; animation: gradientFlow 30s ease infinite;
+        }
+        @keyframes gradientFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .player-container {
+            width: 90%; max-width: 450px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); padding: 30px; text-align: center;
+        }
+        .player-header { margin-bottom: 25px; }
+        .player-header h1 { font-size: 28px; font-weight: 600; color: #333; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .player-header i { color: #ff416c; }
+        .controls-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
+        select, .btn { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+        select:focus, .btn:focus { outline: none; border-color: #4a6cf7; box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2); }
+        .btn { color: white; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .mode-selector { display: flex; gap: 10px; }
+        .mode-btn { flex: 1; background: #f0f0f0; color: #555; }
+        .mode-btn.active { background: linear-gradient(135deg, #a770ef, #cf8bf3); color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
+        .scan-source-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 25px; }
+        .btn-scan { background: linear-gradient(135deg, #6dd5ed, #2193b0); }
+        
+        .scan-progress-area { margin-top: 25px; padding: 20px; background: rgba(0,0,0,0.03); border-radius: 15px; border: 1px solid #eee; text-align: center; }
+        #progress-bar { width: 100%; height: 8px; background-color: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+        #progress-bar-inner { width: 0%; height: 100%; background-color: #4a6cf7; transition: width 0.5s ease; }
+        .vitals-text { font-size: 16px; font-weight: 500; color: #555; }
+        .emotion-text { font-size: 18px; font-weight: 600; color: #4a6cf7; margin-top: 5px; min-height: 24px; }
+        
+        #results-area { margin-top: 25px; padding-top: 25px; border-top: 1px solid #eee; }
+        #song-display { font-size: 18px; font-weight: 600; color: #4a6cf7; min-height: 25px; margin-bottom: 10px; }
+        #spotify-link { display: inline-block; margin-top: 10px; text-decoration: none; font-weight: 500; color: #1DB954; }
+        #playback-controls { margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .playback-btn { background: none; border: none; font-size: 24px; color: #555; cursor: pointer; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease; }
+        .playback-btn:hover { background: #e9e9e9; }
+        #play-pause-btn { font-size: 32px; color: #4a6cf7; }
+        .hidden { display: none; }
+        .status-message { margin-top: 15px; font-style: italic; color: #666; min-height: 20px;}
+        #voice-transcript { color: #0c5460; font-weight: 500; }
+        .dashboard-link { margin-top: 30px; display: inline-block; }
+        .dashboard-link a { color: #555; text-decoration: none; font-size: 14px; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="player-header">
+            <h1><i class="fas fa-heart-pulse"></i> Vitals Player</h1>
+        </div>
+
+        <div class="controls-grid">
+            <select id="language-select">
+                <option value="english">English</option> <option value="hindi">Hindi</option> <option value="malayalam">Malayalam</option> <option value="tamil">Tamil</option>
+            </select>
+            <div class="mode-selector">
+                <button class="btn mode-btn active" data-mode="Local">Local</button>
+                <button class="btn mode-btn" data-mode="Spotify">Spotify</button>
+            </div>
+        </div>
+        
+        <div class="scan-source-selector">
+            <button id="hardware-btn" class="btn btn-scan"><i class="fas fa-microchip"></i> Hardware</button>
+            <button id="automatic-btn" class="btn btn-scan"><i class="fas fa-robot"></i> Automatic</button>
+        </div>
+        
+        <div id="scan-area" class="scan-progress-area hidden">
+            <div id="progress-bar"><div id="progress-bar-inner"></div></div>
+            <div id="vitals-display" class="vitals-text">BPM: -- | HRV: --</div>
+            <div id="emotion-display" class="emotion-text">Scanning...</div>
+        </div>
+
+        <div id="results-area" class="hidden">
+            <div id="song-display"></div>
+            <a href="#" id="spotify-link" target="_blank" class="hidden"></a>
+            <div id="playback-controls" class="hidden">
+                <button id="prev-btn" class="playback-btn"><i class="fas fa-step-backward"></i></button>
+                <button id="play-pause-btn" class="playback-btn"><i class="fas fa-play"></i></button>
+                <button id="next-btn" class="playback-btn"><i class="fas fa-step-forward"></i></button>
+            </div>
+            <p id="status" class="status-message"></p>
+            <p id="voice-transcript" class="status-message"></p>
+        </div>
+
+        <div class="dashboard-link">
+            <a href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        const defaultLanguage = "{{ default_language }}";
+        const isSpotifyConnected = "{{ is_spotify_connected | tojson }}";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE ---
+            let currentMode = 'Local';
+            let audio = null;
+            let isPlaying = false;
+            let localPlaylist = [];
+            let currentTrackIndex = 0;
+            let isScanning = false;
+            let inquiryState = { pending: false, emotion: null, timeout: null };
+            const SCAN_DURATION_S = 10;
+            let simulatedState = 'neutral';
+            
+            // --- DOM ELEMENTS ---
+            const languageSelect = document.getElementById('language-select');
+            const modeButtons = document.querySelectorAll('.mode-btn');
+            const hardwareBtn = document.getElementById('hardware-btn');
+            const automaticBtn = document.getElementById('automatic-btn');
+            const scanArea = document.getElementById('scan-area');
+            const progressBar = document.getElementById('progress-bar-inner');
+            const vitalsDisplay = document.getElementById('vitals-display');
+            const emotionDisplay = document.getElementById('emotion-display');
+            const resultsArea = document.getElementById('results-area');
+            const songDisplay = document.getElementById('song-display');
+            const spotifyLink = document.getElementById('spotify-link');
+            const playbackControls = document.getElementById('playback-controls');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const statusMessage = document.getElementById('status');
+            const voiceTranscript = document.getElementById('voice-transcript');
+            
+            // --- INITIAL SETUP ---
+            languageSelect.value = defaultLanguage;
+
+            // --- EVENT LISTENERS ---
+            modeButtons.forEach(btn => btn.addEventListener('click', handleModeChange));
+            hardwareBtn.addEventListener('click', () => startScan('hardware'));
+            automaticBtn.addEventListener('click', () => startScan('automatic'));
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            nextBtn.addEventListener('click', playNext);
+            prevBtn.addEventListener('click', playPrev);
+            
+            // --- Improved Emotion Simulation ---
+            function changeSimulatedState() {
+                const states = ['happy', 'sad', 'angry', 'neutral'];
+                simulatedState = states[Math.floor(Math.random() * states.length)];
+                console.log(`Simulation state changed to: ${simulatedState}`);
+            }
+            setInterval(changeSimulatedState, 15000);
+
+            function generateVitals() {
+                let bpm, hrv;
+                if (simulatedState === 'happy') {
+                    bpm = Math.floor(Math.random() * 20) + 95;
+                    hrv = Math.floor(Math.random() * 20) + 45;
+                } else if (simulatedState === 'sad') {
+                    bpm = Math.floor(Math.random() * 10) + 60;
+                    hrv = Math.floor(Math.random() * 10) + 15;
+                } else if (simulatedState === 'angry') {
+                    bpm = Math.floor(Math.random() * 20) + 105;
+                    hrv = Math.floor(Math.random() * 10) + 15;
+                } else {
+                    bpm = Math.floor(Math.random() * 15) + 70;
+                    hrv = Math.floor(Math.random() * 15) + 30;
+                }
+                return { bpm, hrv };
+            }
+
+            // --- CORE SCAN LOGIC ---
+            async function startScan(source) {
+                if (isScanning) return;
+                
+                if (currentMode === 'Spotify' && !isSpotifyConnected) {
+                    const errorMsg = "Spotify not connected. Please go to the dashboard to connect your account.";
+                    statusMessage.textContent = errorMsg;
+                    speak(errorMsg);
+                    return;
+                }
+
+                isScanning = true;
+                setScanButtonsState(true);
+                scanArea.classList.remove('hidden');
+                vitalsDisplay.textContent = 'BPM: -- | HRV: --';
+                emotionDisplay.textContent = 'Scanning...';
+                statusMessage.textContent = '';
+                let collectedEmotions = [];
+
+                if (source === 'hardware') {
+                    emotionDisplay.textContent = 'Hardware not connected.';
+                    speak('Hardware not connected.');
+                    setTimeout(() => {
+                        isScanning = false;
+                        setScanButtonsState(false);
+                        scanArea.classList.add('hidden');
+                    }, 3000);
+                    return;
+                }
+
+                const scanInterval = setInterval(async () => {
+                    const { bpm, hrv } = generateVitals();
+                    vitalsDisplay.textContent = `BPM: ${bpm} | HRV: ${hrv}`;
+                    const response = await fetch('/detect_from_vitals', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bpm, hrv })
+                    });
+                    const data = await response.json();
+                    if(data.detected_emotion) collectedEmotions.push(data.detected_emotion);
+                }, 1000);
+
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 100 / SCAN_DURATION_S;
+                    progressBar.style.width = `${progress}%`;
+                }, 1000);
+
+                setTimeout(() => {
+                    clearInterval(scanInterval);
+                    clearInterval(progressInterval);
+                    progressBar.style.width = '0%';
+                    scanArea.classList.add('hidden');
+                    isScanning = false;
+                    setScanButtonsState(false);
+                    finishScan(collectedEmotions);
+                }, SCAN_DURATION_S * 1000);
+            }
+
+            function finishScan(emotions) {
+                if (emotions.length === 0) {
+                    statusMessage.textContent = "Could not detect emotion. Please try again.";
+                    return;
+                }
+                const confidentEmotion = getConfidentEmotion(emotions);
+                emotionDisplay.textContent = `Detected Emotion: ${confidentEmotion.charAt(0).toUpperCase() + confidentEmotion.slice(1)}`;
+
+                if (['sad', 'angry'].includes(confidentEmotion)) {
+                    inquiryState = { pending: true, emotion: confidentEmotion, timeout: null };
+                    const inquiryText = `Detected ${confidentEmotion}. Say 'same mood' or 'change mood'.`;
+                    statusMessage.textContent = inquiryText; 
+                    speak(inquiryText);
+
+                    inquiryState.timeout = setTimeout(() => {
+                        if (inquiryState.pending) {
+                            statusMessage.textContent = '';
+                            speak("No response heard. Playing calming music by default.");
+                            getRecommendation('neutral');
+                            inquiryState = { pending: false, emotion: null, timeout: null };
+                            if(recognition) recognition.start();
+                        }
+                    }, 15000);
+                } else {
+                    getRecommendation(confidentEmotion);
+                }
+            }
+
+            function getConfidentEmotion(arr) {
+                const frequencyMap = arr.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+                return Object.keys(frequencyMap).reduce((a, b) => frequencyMap[a] > frequencyMap[b] ? a : b);
+            }
+            
+            function setScanButtonsState(disabled) {
+                hardwareBtn.disabled = disabled;
+                automaticBtn.disabled = disabled;
+            }
+
+            // --- MUSIC & UI LOGIC ---
+            function handleModeChange(event) {
+                if (audio) {
+                    audio.pause();
+                    isPlaying = false;
+                    audio = null;
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    songDisplay.textContent = '';
+                    playbackControls.classList.add('hidden');
+                    spotifyLink.classList.add('hidden');
+                }
+                const btn = event.currentTarget;
+                currentMode = btn.dataset.mode;
+                modeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+
+            async function getRecommendation(emotion) {
+                if (!emotion) return;
+                showStatus(`Finding music for ${emotion} mood...`);
+                if (audio) audio.pause();
+
+                try {
+                    const response = await fetch('/get_music_recommendation', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ emotion, language: languageSelect.value, mode: currentMode })
+                    });
+                    if (!response.ok) throw new Error('Network response was not ok.');
+                    const data = await response.json();
+                    updateUI(data, emotion);
+                } catch (error) {
+                    showStatus('Could not find music. Please try again.');
+                }
+            }
+
+            function updateUI(data, emotion) {
+                resultsArea.classList.remove('hidden');
+                spotifyLink.classList.add('hidden');
+                playbackControls.classList.add('hidden');
+                statusMessage.textContent = '';
+                
+                if (data.error) { showStatus(data.error); return; }
+
+                if (data.type === 'spotify') {
+                    songDisplay.textContent = `Playlist: ${data.name}`;
+                    if (data.url) {
+                        spotifyLink.href = data.url;
+                        spotifyLink.textContent = "Listen on Spotify";
+                        spotifyLink.classList.remove('hidden');
+                    }
+                    speak(`Found a Spotify playlist called ${data.name}.`);
+                    logHistory({ playlist_name: data.name, emotion });
+                } else if (data.type === 'local' && data.tracks && data.tracks.length > 0) {
+                    localPlaylist = data.tracks;
+                    currentTrackIndex = 0;
+                    playbackControls.classList.remove('hidden');
+                    loadTrack(currentTrackIndex, emotion);
+                } else {
+                     showStatus('No music found for your selection.');
+                     speak('Sorry, no music was found for that selection.');
+                }
+            }
+
+            function loadTrack(index, emotion) {
+                if (audio) { audio.pause(); audio = null; }
+                const track = localPlaylist[index];
+                songDisplay.textContent = track.name;
+                speak(`Now playing ${track.name}.`);
+                audio = new Audio(track.path);
+                audio.addEventListener('ended', () => startScan('automatic'));
+                togglePlayPause(true);
+                logHistory({ song_name: track.name, emotion });
+            }
+
+            function togglePlayPause(forcePlay = false) {
+                if (!audio) return;
+                if (audio.paused && (forcePlay || !isPlaying)) {
+                    audio.play(); isPlaying = true; playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                } else {
+                    audio.pause(); isPlaying = false; playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                }
+            }
+            
+            function playNext() {
+                if (!localPlaylist || localPlaylist.length === 0) return;
+                currentTrackIndex = (currentTrackIndex + 1) % localPlaylist.length;
+                loadTrack(currentTrackIndex, emotionDisplay.textContent.split(': ')[1].toLowerCase());
+            }
+
+            function playPrev() {
+                if (!localPlaylist || localPlaylist.length === 0) return;
+                currentTrackIndex = (currentTrackIndex - 1 + localPlaylist.length) % localPlaylist.length;
+                loadTrack(currentTrackIndex, emotionDisplay.textContent.split(': ')[1].toLowerCase());
+            }
+
+            async function logHistory({ song_name = null, playlist_name = null, emotion }) {
+                await fetch('/log_vitals_history', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        emotion, language: languageSelect.value, song_name, playlist_name,
+                        detection_mode: 'vitals'
+                    })
+                });
+            }
+
+            function showStatus(message) {
+                resultsArea.classList.remove('hidden'); songDisplay.textContent = '';
+                spotifyLink.classList.add('hidden'); playbackControls.classList.add('hidden');
+                statusMessage.textContent = message;
+            }
+
+            // --- VOICE COMMANDS & TTS ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+
+            function speak(text) {
+                speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                speechSynthesis.speak(utterance);
+            }
+
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = event => {
+                    const transcript = event.results[0][0].transcript.toLowerCase().trim();
+                    voiceTranscript.textContent = `Heard: "${transcript}"`;
+                    setTimeout(() => voiceTranscript.textContent = '', 4000); 
+                    handleVoiceCommand(transcript);
+                };
+
+                recognition.onend = () => {
+                    if (!inquiryState.pending) {
+                        recognition.start();
+                    }
+                };
+                
+                recognition.start();
+            }
+
+            function handleVoiceCommand(command) {
+                if (inquiryState.pending) {
+                    if (command.includes("same mood")) {
+                        speak(`Okay, playing music for your ${inquiryState.emotion} mood.`);
+                        getRecommendation(inquiryState.emotion);
+                        clearTimeout(inquiryState.timeout);
+                        inquiryState = { pending: false, emotion: null, timeout: null };
+                    } else if (command.includes("change mood")) {
+                        speak("Okay, playing some calming music instead.");
+                        getRecommendation('neutral');
+                        clearTimeout(inquiryState.timeout);
+                        inquiryState = { pending: false, emotion: null, timeout: null };
+                    }
+                    statusMessage.textContent = '';
+                    if(recognition) recognition.start();
+                    return;
+                }
+
+                if (command.includes("scan again")) startScan('automatic');
+                else if (command.includes("play")) togglePlayPause(true);
+                else if (command.includes("pause") || command.includes("stop")) togglePlayPause();
+                else if (command.includes("next")) playNext();
+                else if (command.includes("previous")) playPrev();
+                else if (command.includes("switch to spotify") || command.includes("spotify mode")) {
+                    document.querySelector('.mode-btn[data-mode="Spotify"]').click();
+                    speak("Switched to Spotify mode.");
+                } else if (command.includes("switch to local") || command.includes("local mode")) {
+                    document.querySelector('.mode-btn[data-mode="Local"]').click();
+                    speak("Switched to Local mode.");
+                } else if (command.includes("language")) {
+                    const supportedLanguages = [...languageSelect.options].map(opt => opt.value);
+                    let foundLang = null;
+
+                    for (const lang of supportedLanguages) {
+                        if (command.includes(lang)) {
+                            foundLang = lang;
+                            break;
+                        }
+                    }
+
+                    if (foundLang) {
+                        languageSelect.value = foundLang;
+                        speak(`Language set to ${foundLang}. Starting a new scan.`);
+                        startScan('automatic');
+                    } else {
+                        speak(`Sorry, I didn't recognize the language in your command.`);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
