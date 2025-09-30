@@ -1,462 +1,849 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vitals Music Player</title>
+    <title>Vitals Player - AuraTune</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --bg-color: #121212;
+            --primary-color: #1DB954;
+            --card-bg: #1e1e1e;
+            --text-primary: #FFFFFF;
+            --text-secondary: #b3b3b3;
+            --accent-purple: #8A2BE2;
+            --connecting-yellow: #FFC107;
+            --disconnected-red: #E53935;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
         body {
-            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-            background: linear-gradient(-45deg, #ffadad, #ffd6a5, #caffbf, #9bf6ff, #c3a0ff, #ffafbd);
-            background-size: 1600% 1600%; animation: gradientFlow 30s ease infinite;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
         }
-        @keyframes gradientFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .player-container {
-            width: 90%; max-width: 450px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
-            border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); padding: 30px; text-align: center;
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
         }
-        .player-header { margin-bottom: 25px; }
-        .player-header h1 { font-size: 28px; font-weight: 600; color: #333; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .player-header i { color: #ff416c; }
-        .controls-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
-        select, .btn { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
-        select:focus, .btn:focus { outline: none; border-color: #4a6cf7; box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2); }
-        .btn { color: white; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .mode-selector { display: flex; gap: 10px; }
-        .mode-btn { flex: 1; background: #f0f0f0; color: #555; }
-        .mode-btn.active { background: linear-gradient(135deg, #a770ef, #cf8bf3); color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
-        .scan-source-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 25px; }
-        .btn-scan { background: linear-gradient(135deg, #6dd5ed, #2193b0); }
-        
-        .scan-progress-area { margin-top: 25px; padding: 20px; background: rgba(0,0,0,0.03); border-radius: 15px; border: 1px solid #eee; text-align: center; }
-        #progress-bar { width: 100%; height: 8px; background-color: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
-        #progress-bar-inner { width: 0%; height: 100%; background-color: #4a6cf7; transition: width 0.5s ease; }
-        .vitals-text { font-size: 16px; font-weight: 500; color: #555; }
-        .emotion-text { font-size: 18px; font-weight: 600; color: #4a6cf7; margin-top: 5px; min-height: 24px; }
-        
-        #results-area { margin-top: 25px; padding-top: 25px; border-top: 1px solid #eee; }
-        #song-display { font-size: 18px; font-weight: 600; color: #4a6cf7; min-height: 25px; margin-bottom: 10px; }
-        #spotify-link { display: inline-block; margin-top: 10px; text-decoration: none; font-weight: 500; color: #1DB954; }
-        #playback-controls { margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 20px; }
-        .playback-btn { background: none; border: none; font-size: 24px; color: #555; cursor: pointer; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease; }
-        .playback-btn:hover { background: #e9e9e9; }
-        #play-pause-btn { font-size: 32px; color: #4a6cf7; }
-        .hidden { display: none; }
-        .status-message { margin-top: 15px; font-style: italic; color: #666; min-height: 20px;}
-        #voice-transcript { color: #0c5460; font-weight: 500; }
-        .dashboard-link { margin-top: 30px; display: inline-block; }
-        .dashboard-link a { color: #555; text-decoration: none; font-size: 14px; font-weight: 500; }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 15px;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .status-display,
+        .vitals-display {
+            text-align: center;
+        }
+
+        .status-display .status-text {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 10px 0;
+            transition: color 0.3s;
+        }
+
+        .status-text.connected {
+            color: var(--primary-color);
+        }
+
+        .status-text.disconnected {
+            color: var(--disconnected-red);
+        }
+
+        .status-text.connecting {
+            color: var(--connecting-yellow);
+        }
+
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .vital-card {
+            text-align: center;
+        }
+
+        .vital-value {
+            font-size: 48px;
+            font-weight: 700;
+        }
+
+        .vital-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .emotion-display {
+            text-align: center;
+            margin-top: 25px;
+        }
+
+        .emotion-text {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--accent-purple);
+        }
+
+        .controls-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            background-color: #333;
+            color: white;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn.active {
+            background-color: var(--primary-color);
+        }
+
+        .player-info {
+            text-align: center;
+        }
+
+        .track-name {
+            font-size: 18px;
+            font-weight: 600;
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .track-url {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .track-url a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .playback-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .playback-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .playback-btn:hover {
+            color: var(--primary-color);
+        }
+
+        #playPauseBtn .fa-play {
+            display: none;
+        }
+
+        #playPauseBtn.paused .fa-pause {
+            display: none;
+        }
+
+        #playPauseBtn.paused .fa-play {
+            display: inline-block;
+        }
+
+        .voice-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            min-height: 18px;
+        }
+
+        .dashboard-link {
+            text-align: center;
+            margin-top: 15px;
+            grid-column: 1 / -1;
+        }
     </style>
 </head>
-<body>
-    <div class="player-container">
-        <div class="player-header">
-            <h1><i class="fas fa-heart-pulse"></i> Vitals Player</h1>
-        </div>
 
-        <div class="controls-grid">
-            <select id="language-select">
-                <option value="english">English</option> <option value="hindi">Hindi</option> <option value="malayalam">Malayalam</option> <option value="tamil">Tamil</option>
-            </select>
-            <div class="mode-selector">
-                <button class="btn mode-btn active" data-mode="Local">Local</button>
-                <button class="btn mode-btn" data-mode="Spotify">Spotify</button>
+<body data-spotify-connected="{{ is_spotify_connected }}">
+    <div class="container">
+        <div class="panel">
+            <h2 class="panel-title">Vitals Monitor</h2>
+            <div class="status-display">
+                <i class="fas fa-heartbeat fa-2x"></i>
+                <p id="connectionStatus" class="status-text disconnected">Player Idle</p>
+            </div>
+            <div class="vitals-display">
+                <div class="vitals-grid">
+                    <div class="vital-card">
+                        <div id="bpmValue" class="vital-value">--</div>
+                        <div class="vital-label">BPM</div>
+                    </div>
+                    <div class="vital-card">
+                        <div id="hrvValue" class="vital-value">--</div>
+                        <div class="vital-label">HRV (ms)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="emotion-display">
+                <div id="emotionText" class="emotion-text">--</div>
+                <div class="vital-label">Detected Emotion</div>
             </div>
         </div>
-        
-        <div class="scan-source-selector">
-            <button id="hardware-btn" class="btn btn-scan"><i class="fas fa-microchip"></i> Hardware</button>
-            <button id="automatic-btn" class="btn btn-scan"><i class="fas fa-robot"></i> Automatic</button>
-        </div>
-        
-        <div id="scan-area" class="scan-progress-area hidden">
-            <div id="progress-bar"><div id="progress-bar-inner"></div></div>
-            <div id="vitals-display" class="vitals-text">BPM: -- | HRV: --</div>
-            <div id="emotion-display" class="emotion-text">Scanning...</div>
-        </div>
 
-        <div id="results-area" class="hidden">
-            <div id="song-display"></div>
-            <a href="#" id="spotify-link" target="_blank" class="hidden"></a>
-            <div id="playback-controls" class="hidden">
-                <button id="prev-btn" class="playback-btn"><i class="fas fa-step-backward"></i></button>
-                <button id="play-pause-btn" class="playback-btn"><i class="fas fa-play"></i></button>
-                <button id="next-btn" class="playback-btn"><i class="fas fa-step-forward"></i></button>
+        <div class="panel">
+            <h2 class="panel-title">Player Controls</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>Data Input Mode</label>
+                    <div class="btn-group">
+                        <button id="hardwareBtn" class="btn">Hardware</button>
+                        <button id="autoBtn" class="btn">Automatic</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Music Source</label>
+                    <div class="btn-group">
+                        <button id="localBtn" class="btn">Local</button>
+                        <button id="spotifyBtn" class="btn">Spotify</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Language</label>
+                    <div class="btn-group">
+                        <button class="btn lang-btn" data-lang="english">English</button>
+                        <button class="btn lang-btn" data-lang="malayalam">Malayalam</button>
+                        <button class="btn lang-btn" data-lang="hindi">Hindi</button>
+                        <button class="btn lang-btn" data-lang="tamil">Tamil</button>
+                    </div>
+                </div>
             </div>
-            <p id="status" class="status-message"></p>
-            <p id="voice-transcript" class="status-message"></p>
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
+            <div class="player-info">
+                <div id="trackName" class="track-name">Please select your modes above to begin.</div>
+                <div id="trackUrl" class="track-url"></div>
+                <div class="playback-controls">
+                    <button id="prevBtn" class="playback-btn"><i class="fas fa-step-backward"></i></button>
+                    <button id="playPauseBtn" class="playback-btn paused"><i class="fas fa-play"></i><i class="fas fa-pause"></i></button>
+                    <button id="nextBtn" class="playback-btn"><i class="fas fa-step-forward"></i></button>
+                </div>
+                <div id="voiceStatus" class="voice-status">Initializing voice recognition...</div>
+            </div>
         </div>
-
         <div class="dashboard-link">
             <a href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
         </div>
     </div>
 
+    <audio id="localPlayer"></audio>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuzzysort@2.0.4/fuzzysort.min.js"></script>
+
+     
+
     <script>
-        const defaultLanguage = "{{ default_language }}";
-        const isSpotifyConnected = "{{ is_spotify_connected | tojson }}";
-
         document.addEventListener('DOMContentLoaded', () => {
-            // --- STATE ---
-            let currentMode = 'Local';
-            let audio = null;
-            let isPlaying = false;
-            let localPlaylist = [];
-            let currentTrackIndex = 0;
-            let isScanning = false;
-            let inquiryState = { pending: false, emotion: null, timeout: null };
-            const SCAN_DURATION_S = 10;
-            let simulatedState = 'neutral';
-            
-            // --- DOM ELEMENTS ---
-            const languageSelect = document.getElementById('language-select');
-            const modeButtons = document.querySelectorAll('.mode-btn');
-            const hardwareBtn = document.getElementById('hardware-btn');
-            const automaticBtn = document.getElementById('automatic-btn');
-            const scanArea = document.getElementById('scan-area');
-            const progressBar = document.getElementById('progress-bar-inner');
-            const vitalsDisplay = document.getElementById('vitals-display');
-            const emotionDisplay = document.getElementById('emotion-display');
-            const resultsArea = document.getElementById('results-area');
-            const songDisplay = document.getElementById('song-display');
-            const spotifyLink = document.getElementById('spotify-link');
-            const playbackControls = document.getElementById('playback-controls');
-            const playPauseBtn = document.getElementById('play-pause-btn');
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-            const statusMessage = document.getElementById('status');
-            const voiceTranscript = document.getElementById('voice-transcript');
-            
-            // --- INITIAL SETUP ---
-            languageSelect.value = defaultLanguage;
+            // --- CORE STATE & UI ---
+            const isSpotifyConnected = document.body.dataset.spotifyConnected === 'True';
 
-            // --- EVENT LISTENERS ---
-            modeButtons.forEach(btn => btn.addEventListener('click', handleModeChange));
-            hardwareBtn.addEventListener('click', () => startScan('hardware'));
-            automaticBtn.addEventListener('click', () => startScan('automatic'));
-            playPauseBtn.addEventListener('click', togglePlayPause);
-            nextBtn.addEventListener('click', playNext);
-            prevBtn.addEventListener('click', playPrev);
-            
-            // --- Improved Emotion Simulation ---
-            function changeSimulatedState() {
-                const states = ['happy', 'sad', 'angry', 'neutral'];
-                simulatedState = states[Math.floor(Math.random() * states.length)];
-                console.log(`Simulation state changed to: ${simulatedState}`);
-            }
-            setInterval(changeSimulatedState, 15000);
+            const state = {
+                inputMode: null,
+                musicMode: null,
+                language: '{{ default_language }}',
+                detectedEmotion: null,
+                targetEmotionForPlayback: null,
+                isPlaying: false,
+                isSpotifyConnected: isSpotifyConnected,
+                isSpotifyPremium: false,
+                activeSpotifyDeviceId: null,
+                localPlaylist: [],
+                currentTrackIndex: 0,
+                lastEmotionForMusic: null,
+                nowPlayingInterval: null,
+                lastLoggedTrack: null,
+                inquiryActive: false, // <-- ADD THIS LINE
+                inquiryTimeoutId: null, 
+            };
 
-            function generateVitals() {
-                let bpm, hrv;
-                if (simulatedState === 'happy') {
-                    bpm = Math.floor(Math.random() * 20) + 95;
-                    hrv = Math.floor(Math.random() * 20) + 45;
-                } else if (simulatedState === 'sad') {
-                    bpm = Math.floor(Math.random() * 10) + 60;
-                    hrv = Math.floor(Math.random() * 10) + 15;
-                } else if (simulatedState === 'angry') {
-                    bpm = Math.floor(Math.random() * 20) + 105;
-                    hrv = Math.floor(Math.random() * 10) + 15;
-                } else {
-                    bpm = Math.floor(Math.random() * 15) + 70;
-                    hrv = Math.floor(Math.random() * 15) + 30;
+            const ui = {
+                connectionStatus: document.getElementById('connectionStatus'),
+                bpmValue: document.getElementById('bpmValue'),
+                hrvValue: document.getElementById('hrvValue'),
+                emotionText: document.getElementById('emotionText'),
+                trackName: document.getElementById('trackName'),
+                trackUrl: document.getElementById('trackUrl'),
+                playPauseBtn: document.getElementById('playPauseBtn'),
+                prevBtn: document.getElementById('prevBtn'),
+                nextBtn: document.getElementById('nextBtn'),
+                voiceStatus: document.getElementById('voiceStatus'),
+                localPlayer: document.getElementById('localPlayer'),
+                buttons: {
+                    hardware: document.getElementById('hardwareBtn'),
+                    automatic: document.getElementById('autoBtn'),
+                    local: document.getElementById('localBtn'),
+                    spotify: document.getElementById('spotifyBtn'),
+                    lang: document.querySelectorAll('.lang-btn'),
                 }
-                return { bpm, hrv };
-            }
+            };
 
-            // --- CORE SCAN LOGIC ---
-            async function startScan(source) {
-                if (isScanning) return;
-                
-                if (currentMode === 'Spotify' && !isSpotifyConnected) {
-                    const errorMsg = "Spotify not connected. Please go to the dashboard to connect your account.";
-                    statusMessage.textContent = errorMsg;
-                    speak(errorMsg);
-                    return;
-                }
+            let socket = null;
+            let hardwareConnectionTimeout = null;
 
-                isScanning = true;
-                setScanButtonsState(true);
-                scanArea.classList.remove('hidden');
-                vitalsDisplay.textContent = 'BPM: -- | HRV: --';
-                emotionDisplay.textContent = 'Scanning...';
-                statusMessage.textContent = '';
-                let collectedEmotions = [];
+            // --- PLAYBACK & RECOMMENDATION ---
 
-                if (source === 'hardware') {
-                    emotionDisplay.textContent = 'Hardware not connected.';
-                    speak('Hardware not connected.');
-                    setTimeout(() => {
-                        isScanning = false;
-                        setScanButtonsState(false);
-                        scanArea.classList.add('hidden');
-                    }, 3000);
-                    return;
-                }
-
-                const scanInterval = setInterval(async () => {
-                    const { bpm, hrv } = generateVitals();
-                    vitalsDisplay.textContent = `BPM: ${bpm} | HRV: ${hrv}`;
-                    const response = await fetch('/detect_from_vitals', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bpm, hrv })
+            function stopCurrentPlayback() {
+                ui.localPlayer.pause();
+                ui.localPlayer.src = '';
+                if (state.musicMode === 'Spotify' && state.activeSpotifyDeviceId && state.isPlaying) {
+                    fetch(`/spotify/player-action/pause`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ device_id: state.activeSpotifyDeviceId })
                     });
-                    const data = await response.json();
-                    if(data.detected_emotion) collectedEmotions.push(data.detected_emotion);
-                }, 1000);
-
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 100 / SCAN_DURATION_S;
-                    progressBar.style.width = `${progress}%`;
-                }, 1000);
-
-                setTimeout(() => {
-                    clearInterval(scanInterval);
-                    clearInterval(progressInterval);
-                    progressBar.style.width = '0%';
-                    scanArea.classList.add('hidden');
-                    isScanning = false;
-                    setScanButtonsState(false);
-                    finishScan(collectedEmotions);
-                }, SCAN_DURATION_S * 1000);
+                }
+                state.isPlaying = false;
+                ui.playPauseBtn.classList.add('paused');
+                ui.trackName.textContent = 'Please select your modes to begin.';
+                ui.trackUrl.innerHTML = '';
+                state.localPlaylist = [];
+                state.currentTrackIndex = 0;
+                state.lastEmotionForMusic = null;
+                if (state.nowPlayingInterval) clearInterval(state.nowPlayingInterval);
             }
 
-            function finishScan(emotions) {
-                if (emotions.length === 0) {
-                    statusMessage.textContent = "Could not detect emotion. Please try again.";
-                    return;
+            async function logHistory(data) {
+                try {
+                    await fetch('/log_vitals_history', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } catch (error) {
+                    console.error('Failed to log history:', error);
                 }
-                const confidentEmotion = getConfidentEmotion(emotions);
-                emotionDisplay.textContent = `Detected Emotion: ${confidentEmotion.charAt(0).toUpperCase() + confidentEmotion.slice(1)}`;
+            }
 
-                if (['sad', 'angry'].includes(confidentEmotion)) {
-                    inquiryState = { pending: true, emotion: confidentEmotion, timeout: null };
-                    const inquiryText = `Detected ${confidentEmotion}. Say 'same mood' or 'change mood'.`;
-                    statusMessage.textContent = inquiryText; 
-                    speak(inquiryText);
+            // NEW: This function now ONLY handles new detections and inquiries
+            function getRecommendation() {
+                // If an inquiry is active, or the detected emotion hasn't changed, do nothing.
+                if (state.inquiryActive || state.detectedEmotion === state.lastEmotionForMusic) return;
+                
+                state.lastEmotionForMusic = state.detectedEmotion; // Track the last processed raw emotion
 
-                    inquiryState.timeout = setTimeout(() => {
-                        if (inquiryState.pending) {
-                            statusMessage.textContent = '';
-                            speak("No response heard. Playing calming music by default.");
-                            getRecommendation('neutral');
-                            inquiryState = { pending: false, emotion: null, timeout: null };
-                            if(recognition) recognition.start();
-                        }
-                    }, 15000);
+                if (state.detectedEmotion === 'sad' || state.detectedEmotion === 'angry') {
+                    // If the emotion is complex, start the inquiry process and wait.
+                    startInquiry(state.detectedEmotion);
                 } else {
-                    getRecommendation(confidentEmotion);
+                    // For simple emotions, set the target directly and find music.
+                    state.targetEmotionForPlayback = state.detectedEmotion;
+                    findAndPlayMusic();
                 }
             }
 
-            function getConfidentEmotion(arr) {
-                const frequencyMap = arr.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-                return Object.keys(frequencyMap).reduce((a, b) => frequencyMap[a] > frequencyMap[b] ? a : b);
-            }
-            
-            function setScanButtonsState(disabled) {
-                hardwareBtn.disabled = disabled;
-                automaticBtn.disabled = disabled;
-            }
+            // NEW: This function handles the actual fetching and playing of music
+            async function findAndPlayMusic() {
+                if (!state.targetEmotionForPlayback) return; // Don't run if no target is set
 
-            // --- MUSIC & UI LOGIC ---
-            function handleModeChange(event) {
-                if (audio) {
-                    audio.pause();
-                    isPlaying = false;
-                    audio = null;
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    songDisplay.textContent = '';
-                    playbackControls.classList.add('hidden');
-                    spotifyLink.classList.add('hidden');
-                }
-                const btn = event.currentTarget;
-                currentMode = btn.dataset.mode;
-                modeButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            }
-
-            async function getRecommendation(emotion) {
-                if (!emotion) return;
-                showStatus(`Finding music for ${emotion} mood...`);
-                if (audio) audio.pause();
+                stopCurrentPlayback();
+                ui.trackName.textContent = `Finding music for ${state.targetEmotionForPlayback}...`;
 
                 try {
                     const response = await fetch('/get_music_recommendation', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ emotion, language: languageSelect.value, mode: currentMode })
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        // IMPORTANT: Send the target emotion, not the detected one
+                        body: JSON.stringify({ emotion: state.targetEmotionForPlayback, language: state.language, mode: state.musicMode })
                     });
-                    if (!response.ok) throw new Error('Network response was not ok.');
+                    if (!response.ok) { ui.trackName.textContent = 'Error fetching music.'; return; }
                     const data = await response.json();
-                    updateUI(data, emotion);
-                } catch (error) {
-                    showStatus('Could not find music. Please try again.');
-                }
-            }
-
-            function updateUI(data, emotion) {
-                resultsArea.classList.remove('hidden');
-                spotifyLink.classList.add('hidden');
-                playbackControls.classList.add('hidden');
-                statusMessage.textContent = '';
-                
-                if (data.error) { showStatus(data.error); return; }
-
-                if (data.type === 'spotify') {
-                    songDisplay.textContent = `Playlist: ${data.name}`;
-                    if (data.url) {
-                        spotifyLink.href = data.url;
-                        spotifyLink.textContent = "Listen on Spotify";
-                        spotifyLink.classList.remove('hidden');
+                    if (data.type === 'spotify') {
+                        if (state.isSpotifyPremium && state.activeSpotifyDeviceId) {
+                            playSpotifyPlaylist(data.uri || `spotify:playlist:${data.id}`);
+                        } else {
+                            ui.trackName.textContent = data.name;
+                            ui.trackUrl.innerHTML = `<a href="${data.url}" target="_blank">Play on Spotify</a>`;
+                            logHistory({ language: state.language, emotion: state.targetEmotionForPlayback, playlist_name: data.name });
+                        }
+                    } else if (data.type === 'local') {
+                        state.localPlaylist = data.tracks || [];
+                        if (state.localPlaylist.length > 0) {
+                            const resumeResponse = await fetch(`/local-music/get-resume-state?language=${state.language}&emotion=${state.targetEmotionForPlayback}`);
+                            const resumeData = await resumeResponse.json();
+                            const resumeIndex = resumeData.index || 0;
+                            playLocalTrack(resumeIndex);
+                        } else {
+                            ui.trackName.textContent = `No local songs for ${state.targetEmotionForPlayback}.`;
+                        }
                     }
-                    speak(`Found a Spotify playlist called ${data.name}.`);
-                    logHistory({ playlist_name: data.name, emotion });
-                } else if (data.type === 'local' && data.tracks && data.tracks.length > 0) {
-                    localPlaylist = data.tracks;
-                    currentTrackIndex = 0;
-                    playbackControls.classList.remove('hidden');
-                    loadTrack(currentTrackIndex, emotion);
-                } else {
-                     showStatus('No music found for your selection.');
-                     speak('Sorry, no music was found for that selection.');
-                }
+                } catch (error) { console.error('Recommendation Error:', error); }
             }
 
-            function loadTrack(index, emotion) {
-                if (audio) { audio.pause(); audio = null; }
-                const track = localPlaylist[index];
-                songDisplay.textContent = track.name;
-                speak(`Now playing ${track.name}.`);
-                audio = new Audio(track.path);
-                audio.addEventListener('ended', () => startScan('automatic'));
-                togglePlayPause(true);
-                logHistory({ song_name: track.name, emotion });
-            }
-
-            function togglePlayPause(forcePlay = false) {
-                if (!audio) return;
-                if (audio.paused && (forcePlay || !isPlaying)) {
-                    audio.play(); isPlaying = true; playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                } else {
-                    audio.pause(); isPlaying = false; playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                }
+            async function playSpotifyPlaylist(playlistUri) {
+                const playlistId = playlistUri.split(':').pop();
+                const resumeResponse = await fetch(`/get_spotify_state/${playlistId}`);
+                const resumeState = await resumeResponse.json();
+                const playPayload = {
+                    device_id: state.activeSpotifyDeviceId,
+                    context_uri: playlistUri,
+                    offset: resumeState.track_uri ? { uri: resumeState.track_uri } : null,
+                    position_ms: resumeState.progress_ms || 0
+                };
+                await fetch('/spotify/play', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(playPayload) });
+                state.isPlaying = true;
+                ui.playPauseBtn.classList.remove('paused');
+                startNowPlayingMonitor();
             }
             
-            function playNext() {
-                if (!localPlaylist || localPlaylist.length === 0) return;
-                currentTrackIndex = (currentTrackIndex + 1) % localPlaylist.length;
-                loadTrack(currentTrackIndex, emotionDisplay.textContent.split(': ')[1].toLowerCase());
+            function startNowPlayingMonitor() {
+                if (state.nowPlayingInterval) clearInterval(state.nowPlayingInterval);
+
+                // --- NEW: Track the current Spotify song ID ---
+                let currentSpotifyTrackId = null;
+
+                async function updateNowPlaying() {
+                    if (state.musicMode !== 'Spotify') {
+                        clearInterval(state.nowPlayingInterval);
+                        return;
+                    }
+                    const response = await fetch('/spotify/current-playback');
+                    const playback = await response.json();
+
+                    if (playback && playback.item) {
+                        state.isPlaying = playback.is_playing;
+                        ui.playPauseBtn.classList.toggle('paused', !playback.is_playing);
+                        const track = playback.item;
+                        const artist = track.artists[0].name;
+                        ui.trackName.textContent = `${track.name} - ${artist}`;
+                        const playlistId = playback.context?.uri.split(':').pop();
+
+                        // --- MODIFIED: Detect natural song changes ---
+                        const newTrackId = track.id;
+                        if (currentSpotifyTrackId && newTrackId !== currentSpotifyTrackId && playback.progress_ms < 5000) {
+                            // If the song ID has changed and the new song just started,
+                            // treat it as a natural end to the previous song.
+                            handleSongEnd();
+                        }
+                        currentSpotifyTrackId = newTrackId; // Update the current track ID
+
+                        if (playlistId && track.uri !== state.lastLoggedTrack) {
+                            state.lastLoggedTrack = track.uri;
+                            fetch('/log_spotify_state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playlist_id: playlistId, track_uri: track.uri, progress_ms: playback.progress_ms }) });
+                            logHistory({ language: state.language, emotion: state.detectedEmotion, song_name: track.name });
+                        }
+                    } else {
+                        state.isPlaying = false;
+                        ui.playPauseBtn.classList.add('paused');
+                        currentSpotifyTrackId = null; // Clear track ID if nothing is playing
+                    }
+                }
+                updateNowPlaying();
+                state.nowPlayingInterval = setInterval(updateNowPlaying, 3000);
             }
 
-            function playPrev() {
-                if (!localPlaylist || localPlaylist.length === 0) return;
-                currentTrackIndex = (currentTrackIndex - 1 + localPlaylist.length) % localPlaylist.length;
-                loadTrack(currentTrackIndex, emotionDisplay.textContent.split(': ')[1].toLowerCase());
-            }
+            function playLocalTrack(index) {
+                if (!state.localPlaylist || state.localPlaylist.length === 0) return;
+                
+                // Ensure index is valid and loops around the playlist
+                index = index % state.localPlaylist.length;
 
-            async function logHistory({ song_name = null, playlist_name = null, emotion }) {
-                await fetch('/log_vitals_history', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                const track = state.localPlaylist[index];
+                state.currentTrackIndex = index;
+                ui.trackName.textContent = track.name;
+                ui.trackUrl.innerHTML = '';
+                ui.localPlayer.src = track.path;
+                ui.localPlayer.play();
+                
+                // Log the currently playing song to the main history for the dashboard
+                logHistory({ language: state.language, emotion: state.detectedEmotion, song_name: track.name });
+
+                // --- NEW: Save the index of the CURRENT song for the resume feature ---
+                fetch('/local-music/log-resume-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        emotion, language: languageSelect.value, song_name, playlist_name,
-                        detection_mode: 'vitals'
+                        language: state.language,
+                        emotion: state.detectedEmotion,
+                        index: index, // Save the index of the track that just started
+                        song_name: track.name
                     })
                 });
             }
 
-            function showStatus(message) {
-                resultsArea.classList.remove('hidden'); songDisplay.textContent = '';
-                spotifyLink.classList.add('hidden'); playbackControls.classList.add('hidden');
-                statusMessage.textContent = message;
+            function togglePlayPause() {
+                if (state.musicMode === 'Spotify' && state.activeSpotifyDeviceId) {
+                    const action = state.isPlaying ? 'pause' : 'resume';
+                    fetch(`/spotify/player-action/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: state.activeSpotifyDeviceId }) });
+                    state.isPlaying = !state.isPlaying;
+                    ui.playPauseBtn.classList.toggle('paused', !state.isPlaying);
+                } else if (state.musicMode === 'Local' && state.localPlaylist.length > 0) {
+                    if (state.isPlaying) ui.localPlayer.pause();
+                    else ui.localPlayer.play();
+                }
             }
 
-            // --- VOICE COMMANDS & TTS ---
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition;
-
-            function speak(text) {
-                speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                speechSynthesis.speak(utterance);
+            function playNext() {
+                if (state.musicMode === 'Spotify' && state.activeSpotifyDeviceId) {
+                    fetch('/spotify/player-action/next', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: state.activeSpotifyDeviceId }) });
+                } else if (state.musicMode === 'Local' && state.localPlaylist.length > 0) {
+                    const nextIndex = (state.currentTrackIndex + 1) % state.localPlaylist.length;
+                    playLocalTrack(nextIndex);
+                }
             }
 
-            if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
-                recognition.continuous = false;
-                recognition.lang = 'en-US';
+            function playPrev() {
+                if (state.musicMode === 'Spotify' && state.activeSpotifyDeviceId) {
+                    fetch('/spotify/player-action/previous', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: state.activeSpotifyDeviceId }) });
+                } else if (state.musicMode === 'Local' && state.localPlaylist.length > 0) {
+                    const prevIndex = (state.currentTrackIndex - 1 + state.localPlaylist.length) % state.localPlaylist.length;
+                    playLocalTrack(prevIndex);
+                }
+            }
 
-                recognition.onresult = event => {
-                    const transcript = event.results[0][0].transcript.toLowerCase().trim();
-                    voiceTranscript.textContent = `Heard: "${transcript}"`;
-                    setTimeout(() => voiceTranscript.textContent = '', 4000); 
-                    handleVoiceCommand(transcript);
+            // --- WEBSOCKET & AUTOPILOT ---
+            
+            // --- NEW: Function to handle natural song endings ---
+            function handleSongEnd() {
+                // This function is called when a song finishes naturally
+                // to trigger a new emotion evaluation.
+                if (state.inputMode === 'Automatic') {
+                    // In Automatic mode, we run a new random emotion cycle
+                    startAutoPilot(true); // Pass true to indicate it's a re-run
+                } else if (state.inputMode === 'Hardware') {
+                    // In Hardware mode, we use the last detected emotion
+                    // to fetch a new recommendation.
+                    getRecommendation(true); // The 'true' forces an update
+                }
+            }
+
+            // --- NEW: Function to start the user inquiry for sad/angry emotions ---
+            function startInquiry(emotion) {
+                state.inquiryActive = true;
+                stopCurrentPlayback();
+                const promptText = `Detected '${emotion}'. Say "same mood" to listen to ${emotion} music, or "change mood" to calm down.`;
+                ui.trackName.textContent = promptText;
+                try {
+                    const utterance = new SpeechSynthesisUtterance(promptText);
+                    window.speechSynthesis.speak(utterance);
+                } catch (e) { console.error("Browser speech synthesis failed:", e); }
+
+                state.inquiryTimeoutId = setTimeout(() => {
+                    console.log("Inquiry timed out. Defaulting to neutral.");
+                    state.inquiryActive = false;
+                    state.targetEmotionForPlayback = 'neutral';
+                    findAndPlayMusic();
+                }, 20000);
+            }
+
+            function startAutoPilot(isRerun = false) {
+                if (!isRerun) {
+                    // Only show these messages when the mode is first selected
+                    ui.connectionStatus.className = 'status-text connected';
+                    ui.connectionStatus.textContent = 'Automatic Mode Active';
+                }
+
+                const demoEmotions = ['happy', 'sad', 'angry', 'neutral'];
+                const runCycle = () => {
+                    const randomEmotion = demoEmotions[Math.floor(Math.random() * demoEmotions.length)];
+                    state.detectedEmotion = randomEmotion;
+                    ui.emotionText.textContent = randomEmotion.charAt(0).toUpperCase() + randomEmotion.slice(1);
+                    let bpm, hrv;
+                    if (randomEmotion === 'happy') { bpm = 95 + Math.floor(Math.random() * 20); hrv = 45 + Math.floor(Math.random() * 20); }
+                    else if (randomEmotion === 'sad') { bpm = 60 + Math.floor(Math.random() * 15); hrv = 15 + Math.floor(Math.random() * 15); }
+                    else if (randomEmotion === 'angry') { bpm = 105 + Math.floor(Math.random() * 30); hrv = 10 + Math.floor(Math.random() * 15); }
+                    else { bpm = 70 + Math.floor(Math.random() * 15); hrv = 50 + Math.floor(Math.random() * 20); }
+                    ui.bpmValue.textContent = bpm;
+                    ui.hrvValue.textContent = hrv;
+                    getRecommendation();
                 };
-
-                recognition.onend = () => {
-                    if (!inquiryState.pending) {
-                        recognition.start();
-                    }
-                };
-                
-                recognition.start();
+                runCycle();
             }
 
-            function handleVoiceCommand(command) {
-                if (inquiryState.pending) {
-                    if (command.includes("same mood")) {
-                        speak(`Okay, playing music for your ${inquiryState.emotion} mood.`);
-                        getRecommendation(inquiryState.emotion);
-                        clearTimeout(inquiryState.timeout);
-                        inquiryState = { pending: false, emotion: null, timeout: null };
-                    } else if (command.includes("change mood")) {
-                        speak("Okay, playing some calming music instead.");
-                        getRecommendation('neutral');
-                        clearTimeout(inquiryState.timeout);
-                        inquiryState = { pending: false, emotion: null, timeout: null };
-                    }
-                    statusMessage.textContent = '';
-                    if(recognition) recognition.start();
+            function stopAutoPilot() {
+                ui.bpmValue.textContent = '--';
+                ui.hrvValue.textContent = '--';
+                if (state.inputMode !== 'Hardware') { ui.connectionStatus.className = 'status-text disconnected'; ui.connectionStatus.textContent = 'Player Idle'; }
+            }
+            
+            function connectWebSocket() {
+                if (socket && socket.connected) return;
+                ui.connectionStatus.className = 'status-text connecting';
+                ui.connectionStatus.textContent = 'Connecting...';
+                socket = io('/hardware');
+                hardwareConnectionTimeout = setTimeout(() => { ui.connectionStatus.className = 'status-text disconnected'; ui.connectionStatus.textContent = 'Hardware not connected'; }, 10000);
+                socket.on('connect', () => {
+                ui.connectionStatus.textContent = 'Waiting for device data...';
+                // This correctly handles the timeout if no data is received after connecting
+                hardwareConnectionTimeout = setTimeout(() => { ui.connectionStatus.className = 'status-text disconnected'; ui.connectionStatus.textContent = 'Hardware not connected'; }, 10000);
+            });
+                socket.on('disconnect', () => { clearTimeout(hardwareConnectionTimeout); ui.connectionStatus.className = 'status-text disconnected'; ui.connectionStatus.textContent = 'Hardware Disconnected'; });
+                socket.on('vitals_from_server', (data) => {
+                clearTimeout(hardwareConnectionTimeout);
+                ui.connectionStatus.className = 'status-text connected';
+                ui.connectionStatus.textContent = 'Hardware Connected';
+                ui.bpmValue.textContent = data.bpm || '--';
+                ui.hrvValue.textContent = data.hrv || '--';
+
+                if (data.detected_emotion) {
+                    state.detectedEmotion = data.detected_emotion;
+                    ui.emotionText.textContent = data.detected_emotion.charAt(0).toUpperCase() + data.detected_emotion.slice(1);
+                    // Now it just updates the emotion and calls the main recommendation function
+                    getRecommendation();
+                }
+            });
+            }
+
+            function disconnectWebSocket() {
+                clearTimeout(hardwareConnectionTimeout);
+                if (socket) socket.disconnect();
+                socket = null;
+                if (state.inputMode !== 'Automatic') { ui.connectionStatus.className = 'status-text disconnected'; ui.connectionStatus.textContent = 'Player Idle'; }
+            }
+            
+            // --- VOICE RECOGNITION (COMPLETE & CORRECTED) ---
+
+            function startVoiceRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    ui.voiceStatus.textContent = "Voice recognition not supported.";
                     return;
                 }
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
 
-                if (command.includes("scan again")) startScan('automatic');
-                else if (command.includes("play")) togglePlayPause(true);
-                else if (command.includes("pause") || command.includes("stop")) togglePlayPause();
-                else if (command.includes("next")) playNext();
-                else if (command.includes("previous")) playPrev();
-                else if (command.includes("switch to spotify") || command.includes("spotify mode")) {
-                    document.querySelector('.mode-btn[data-mode="Spotify"]').click();
-                    speak("Switched to Spotify mode.");
-                } else if (command.includes("switch to local") || command.includes("local mode")) {
-                    document.querySelector('.mode-btn[data-mode="Local"]').click();
-                    speak("Switched to Local mode.");
-                } else if (command.includes("language")) {
-                    const supportedLanguages = [...languageSelect.options].map(opt => opt.value);
-                    let foundLang = null;
+                const voiceCommands = {
+                    'play': { keywords: ['play', 'start music', 'resume'], action: togglePlayPause },
+                    'pause': { keywords: ['pause', 'stop', 'stop music'], action: togglePlayPause },
+                    'next': { keywords: ['next song', 'next', 'skip'], action: playNext },
+                    'previous': { keywords: ['previous song', 'previous', 'go back'], action: playPrev },
+                    'input_hardware': { keywords: ['hardware mode', 'use hardware'], action: () => ui.buttons.hardware.click() },
+                    'input_auto': { keywords: ['automatic mode', 'auto mode'], action: () => ui.buttons.automatic.click() },
+                    'music_local': { keywords: ['local music', 'local mode'], action: () => ui.buttons.local.click() },
+                    'music_spotify': { keywords: ['spotify music', 'spotify mode'], action: () => ui.buttons.spotify.click() },
+                };
+                ui.buttons.lang.forEach(btn => {
+                    const lang = btn.dataset.lang;
+                    voiceCommands[`lang_${lang}`] = { keywords: [lang], action: () => btn.click() };
+                });
 
-                    for (const lang of supportedLanguages) {
-                        if (command.includes(lang)) {
-                            foundLang = lang;
-                            break;
-                        }
-                    }
-
-                    if (foundLang) {
-                        languageSelect.value = foundLang;
-                        speak(`Language set to ${foundLang}. Starting a new scan.`);
-                        startScan('automatic');
-                    } else {
-                        speak(`Sorry, I didn't recognize the language in your command.`);
+                // --- NEW: Prepare a flat list of commands and a mapping for fuzzy matching ---
+                const allKeywords = [];
+                const keywordToActionMap = {};
+                for (const commandKey in voiceCommands) {
+                    for (const keyword of voiceCommands[commandKey].keywords) {
+                        allKeywords.push(keyword);
+                        // Map each keyword (e.g., 'start music') back to its action function
+                        keywordToActionMap[keyword] = voiceCommands[commandKey].action;
                     }
                 }
+                // -----------------------------------------------------------------------------
+
+                function handleVoiceCommand(transcript) {
+                    // First, handle the inquiry logic as it's a special case
+                    if (state.inquiryActive) {
+                        let inquiryHandled = false;
+                        if (transcript.includes('same mood') || transcript.includes('same')) {
+                            ui.voiceStatus.textContent = `Action: "same mood"`;
+                            clearTimeout(state.inquiryTimeoutId);
+                            state.inquiryActive = false;
+                            state.targetEmotionForPlayback = state.detectedEmotion;
+                            findAndPlayMusic();
+                            inquiryHandled = true;
+                        } else if (transcript.includes('change mood') || transcript.includes('change')) {
+                            ui.voiceStatus.textContent = `Action: "change mood"`;
+                            clearTimeout(state.inquiryTimeoutId);
+                            state.inquiryActive = false;
+                            state.targetEmotionForPlayback = 'neutral';
+                            findAndPlayMusic();
+                            inquiryHandled = true;
+                        }
+                        if(inquiryHandled) return;
+                    }
+
+                    // --- MODIFIED: Use fuzzy matching instead of exact .includes() ---
+                    // Find the best match from our list of all possible command keywords
+                    const results = fuzzysort.go(transcript, allKeywords);
+
+                    if (results.length > 0) {
+                        const bestMatch = results[0];
+                        // Set a confidence threshold (e.g., score > -1000 is a reasonable start)
+                        // fuzzysort scores are higher the better the match.
+                        if (bestMatch.score > -1000) { 
+                            const matchedKeyword = bestMatch.target;
+                            ui.voiceStatus.textContent = `Action: "${matchedKeyword}"`;
+                            
+                            // Find the action associated with the best match and execute it
+                            const actionToRun = keywordToActionMap[matchedKeyword];
+                            if (actionToRun) {
+                                actionToRun();
+                            }
+                            return;
+                        }
+                    }
+                    // -------------------------------------------------------------------
+
+                    ui.voiceStatus.textContent = `Heard: "${transcript}" (unrecognized)`;
+                }
+
+                recognition.onresult = e => {
+                    const transcript = e.results[e.results.length - 1][0].transcript.trim().toLowerCase();
+                    handleVoiceCommand(transcript);
+                };
+                recognition.onerror = e => {
+                    if (e.error !== 'no-speech' && e.error !== 'network') {
+                       ui.voiceStatus.textContent = `Voice error: ${e.error}`;
+                    }
+                };
+                recognition.onend = () => {
+                    setTimeout(() => {
+                        try { recognition.start(); } catch (err) { /* ignore */ }
+                    }, 500);
+                };
+                try {
+                    ui.voiceStatus.textContent = "Voice Command: Ready";
+                    recognition.start();
+                } catch (err) {
+                    ui.voiceStatus.textContent = "Voice recognition error.";
+                }
             }
+
+            // --- UI SETUP & EVENT LISTENERS ---
+
+            function updateUI() {
+                ui.buttons.hardware.classList.toggle('active', state.inputMode === 'Hardware');
+                ui.buttons.automatic.classList.toggle('active', state.inputMode === 'Automatic');
+                ui.buttons.local.classList.toggle('active', state.musicMode === 'Local');
+                ui.buttons.spotify.classList.toggle('active', state.musicMode === 'Spotify');
+                ui.buttons.lang.forEach(btn => btn.classList.toggle('active', btn.dataset.lang === state.language));
+
+                const playerControlsVisible = state.musicMode === 'Local' || (state.musicMode === 'Spotify' && state.isSpotifyPremium);
+                ui.prevBtn.style.visibility = playerControlsVisible ? 'visible' : 'hidden';
+                ui.playPauseBtn.style.visibility = playerControlsVisible ? 'visible' : 'hidden';
+                ui.nextBtn.style.visibility = playerControlsVisible ? 'visible' : 'hidden';
+
+                if (!state.isSpotifyConnected) {
+                    ui.buttons.spotify.disabled = true;
+                    ui.buttons.spotify.style.cursor = 'not-allowed';
+                    ui.buttons.spotify.textContent = 'Spotify (Not Linked)';
+                }
+            }
+
+            ui.buttons.hardware.addEventListener('click', () => { stopCurrentPlayback(); state.inputMode = 'Hardware'; stopAutoPilot(); state.detectedEmotion = null; ui.emotionText.textContent = '--'; updateUI(); connectWebSocket(); });
+            ui.buttons.automatic.addEventListener('click', () => { stopCurrentPlayback(); state.inputMode = 'Automatic'; disconnectWebSocket(); updateUI(); startAutoPilot(); });
+            ui.buttons.local.addEventListener('click', () => { stopCurrentPlayback(); state.musicMode = 'Local'; updateUI(); if (state.inputMode) getRecommendation(true); });
+            ui.buttons.spotify.addEventListener('click', () => { if (state.isSpotifyConnected) { stopCurrentPlayback(); state.musicMode = 'Spotify'; updateUI(); if (state.inputMode) getRecommendation(true); } });
+            ui.buttons.lang.forEach(btn => btn.addEventListener('click', () => { 
+                state.language = btn.dataset.lang; 
+                updateUI(); 
+                // Only refresh music if no inquiry is active
+                if (!state.inquiryActive && state.inputMode && state.musicMode) {
+                    findAndPlayMusic();
+                }
+            }));
+
+            
+            ui.playPauseBtn.addEventListener('click', togglePlayPause);
+            ui.nextBtn.addEventListener('click', playNext);
+            ui.prevBtn.addEventListener('click', playPrev);
+            
+            ui.localPlayer.addEventListener('ended', handleSongEnd);
+            ui.localPlayer.addEventListener('play', () => { state.isPlaying = true; ui.playPauseBtn.classList.remove('paused'); });
+            ui.localPlayer.addEventListener('pause', () => { state.isPlaying = false; ui.playPauseBtn.classList.add('paused'); });
+
+            // --- INITIALIZATION ---
+            async function initialize() {
+                if (state.isSpotifyConnected) {
+                    try {
+                        const response = await fetch('/spotify/devices');
+                        const data = await response.json();
+                        const activeDevice = data.devices?.find(d => d.is_active);
+                        if (activeDevice) {
+                            state.isSpotifyPremium = true;
+                            state.activeSpotifyDeviceId = activeDevice.id;
+                            console.log('Premium Spotify experience enabled. Active device:', activeDevice.name);
+                        } else {
+                            console.log('Spotify is linked, but no active device found. Playback will be link-only.');
+                        }
+                    } catch (e) { console.error("Could not check for Spotify devices."); }
+                }
+                updateUI();
+                startVoiceRecognition();
+            }
+
+            initialize();
         });
     </script>
 </body>
+
 </html>
+ 

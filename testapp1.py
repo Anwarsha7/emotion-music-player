@@ -1,6 +1,6 @@
 # app.py
 from itsdangerous import URLSafeTimedSerializer as Serializer
-from flask import url_for
+from flask import url_for, jsonify
 from bson.objectid import ObjectId
 from forms import RegistrationForm, RequestResetForm, ResetPasswordForm
 import time
@@ -11,10 +11,13 @@ import os
 import subprocess
 from dotenv import load_dotenv
 import sys
+import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from flask_mail import Mail, Message
 from forms import RegistrationForm
-# In app.py
+from flask_socketio import SocketIO, emit 
+from werkzeug.utils import secure_filename
+import uuid 
 import logging
 
 # --- ADD THIS LOGGING CONFIGURATION ---
@@ -39,6 +42,14 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 # Initialize Flask and Mongo
 # ----------------------
 app = Flask(__name__)
+# Add this block right after app = Flask(__name__)
+
+app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 # Configure Flask-Mail
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
@@ -48,6 +59,7 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 app.secret_key = SECRET_KEY
 bcrypt = Bcrypt(app)
+socketio = SocketIO(app)
 
 client = MongoClient(MONGO_URI)
 db = client["emotion_music_app"]
@@ -124,7 +136,8 @@ def register():
             "username": form.username.data,
             "email": form.email.data,
             "password": hashed_pw,
-            "default_language": form.language.data
+            "default_language": form.language.data,
+            "player_lock": {"status": "none", "timestamp": 0},
         })
         flash("Registration successful! Please login.", "success")
         return redirect(url_for("login"))
@@ -143,6 +156,11 @@ def login():
                 "username": user["username"],
                 "email": user["email"]
             }
+            users_col.update_one(                                      
+                {"email": email},                                       
+                {"$set": {"player_lock": {"status": "none", "timestamp": 0}}}   
+            )
+
             flash("Login successful!", "success")
             return redirect(url_for("dashboard"))
         else:
@@ -190,42 +208,61 @@ def dashboard():
         return redirect(url_for("login"))
 
     email = session["user"]["email"]
-    username = session["user"]["username"]
+    user_data = users_col.find_one({"email": email}) or {}
 
-    # Fetch listening history
+    # --- EXISTING LOGIC (No changes here) ---
     history = list(history_col.find({
         "user_email": email,
         "type": {"$in": ["local_play", "spotify_play"]}
     }).sort('_id', -1))
-
-    # Compute emotion stats
     stats = {}
     for entry in history:
         emo = entry.get("emotion", "neutral")
         stats[emo] = stats.get(emo, 0) + 1
 
-    # Fetch user document from DB
-    user_data = users_col.find_one({"email": email}) or {}
-
-    # Detect whether Spotify is linked
-    # This is the new, smarter check
     spotify_linked = False
     expires_at = user_data.get("spotify_expires_at")
     access_token = user_data.get("spotify_access_token")
-
     if access_token and expires_at and time.time() < expires_at:
         spotify_linked = True
 
+    # --- NEW: Get the profile picture filename ---
+    user_profile_pic = user_data.get("profile_pic", None)
+
     return render_template(
         "dashboard.html",
-        username=username,
+        username=user_data.get("username"),
         email=email,
         history=history,
         stats=stats,
-        user_spotify_linked=spotify_linked
+        user_spotify_linked=spotify_linked,
+        user_profile_pic=user_profile_pic  # Pass filename to the template
     )
 
-# ----- NEW: Edit Profile Route -----
+# ----- Vitals Player Route -----
+@app.route("/vitals_player")
+def vitals_player():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
+    user_data = users_col.find_one({"email": session["user"]["email"]})
+    default_language = user_data.get("default_language", "english")
+    
+    # NEW: Check Spotify connection status
+    is_spotify_connected = False
+    spotify_expires_at = user_data.get("spotify_expires_at")
+    spotify_access_token = user_data.get("spotify_access_token")
+    if spotify_access_token and spotify_expires_at and time.time() < spotify_expires_at:
+        is_spotify_connected = True
+    
+    return render_template(
+        "vitals_player.html", 
+        username=session["user"]["username"], 
+        default_language=default_language,
+        is_spotify_connected=is_spotify_connected  # Pass the new variable
+    )
+
+# ----- Edit Profile Route -----
 @app.route("/edit_profile", methods=["GET", "POST"])
 def edit_profile():
     if "user" not in session:
@@ -235,40 +272,90 @@ def edit_profile():
     user_data = users_col.find_one({"email": user_email})
 
     if request.method == "POST":
+        # --- PROFILE PICTURE LOGIC ---
+        if 'profile_pic' in request.files:
+            file = request.files['profile_pic']
+            if file and file.filename != '' and allowed_file(file.filename):
+                # Create a unique filename to prevent conflicts
+                filename_ext = file.filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{uuid.uuid4()}.{filename_ext}"
+
+                # Delete old picture if it exists
+                old_pic = user_data.get("profile_pic")
+                if old_pic:
+                    try:
+                        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], old_pic))
+                    except OSError as e:
+                        print(f"Error deleting old profile picture: {e}")
+
+                # Save the new file and update the database
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+                users_col.update_one({"email": user_email}, {"$set": {"profile_pic": unique_filename}})
+                flash("Profile picture updated!", "success")
+
+        # --- EXISTING PROFILE UPDATE LOGIC ---
         new_username = request.form["username"]
         new_email = request.form["email"]
         new_password = request.form["password"]
         new_language = request.form["language"]
 
-        # Check if the new email is already taken by another user
         if new_email != user_email and users_col.find_one({"email": new_email}):
             flash("That email address is already in use.", "danger")
             return render_template("edit_profile.html", user=user_data)
 
-        # Prepare update data
         update_data = {
             "username": new_username,
             "email": new_email,
             "default_language": new_language
         }
-
-        # If a new password was entered, hash and include it
         if new_password:
             hashed_pw = bcrypt.generate_password_hash(new_password).decode("utf-8")
             update_data["password"] = hashed_pw
 
-        # Update the database
         users_col.update_one({"email": user_email}, {"$set": update_data})
 
-        # Update the session with new details
         session["user"]["username"] = new_username
         session["user"]["email"] = new_email
         session.modified = True
 
-        flash("Profile updated successfully!", "success")
+        flash("Profile details updated successfully!", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("edit_profile.html", user=user_data)
+
+# Add this entire function to app.py
+
+# REPLACE your existing delete_profile_pic function with this one
+
+@app.route("/delete_profile_pic", methods=["POST"])
+def delete_profile_pic():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    user_email = session["user"]["email"]
+    user_data = users_col.find_one({"email": user_email})
+    
+    profile_pic_filename = user_data.get("profile_pic")
+    
+    if profile_pic_filename:
+        # 1. Delete the file from the server
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], profile_pic_filename)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except OSError as e:
+            print(f"Error deleting profile picture file: {e}")
+            flash("An error occurred while deleting the picture.", "danger")
+            return redirect(url_for('edit_profile'))
+            
+        # 2. Remove the field from the database
+        users_col.update_one(
+            {"email": user_email},
+            {"$unset": {"profile_pic": ""}}
+        )
+        flash("Profile picture has been deleted.", "success")
+        
+    return redirect(url_for('edit_profile'))
 
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
@@ -297,6 +384,12 @@ def submit_feedback():
 # ----- Logout -----
 @app.route("/logout")
 def logout():
+    # NEW: Release any web player locks on logout
+    if "user" in session:
+        users_col.update_one(
+            {"email": session["user"]["email"], "player_lock.status": "web"},
+            {"$set": {"player_lock": {"status": "none", "timestamp": 0}}}
+        )
     session.pop("user", None)
     flash("You have been logged out.", "info")
     return redirect(url_for("login"))
@@ -321,6 +414,21 @@ def launch_app():
 
     user_email = session["user"]["email"]
     user_data = users_col.find_one({"email": user_email})
+    # --- NEW: LOCKING MECHANISM ---
+    lock = user_data.get("player_lock", {"status": "none", "timestamp": 0})
+    # A lock is stale if it's older than 60 seconds
+    is_stale = (time.time() - lock.get("timestamp", 0)) > 60 
+
+    if lock["status"] != "none" and not is_stale:
+        flash(f"Another player ({lock['status']} mode) is already active. Please close it first.", "danger")
+        return redirect(url_for("dashboard"))
+
+    # Set a new lock for the desktop app
+    users_col.update_one(
+        {"email": user_email},
+        {"$set": {"player_lock": {"status": "desktop", "timestamp": time.time()}}}
+    )
+    # --- END LOCKING MECHANISM ---
     default_language = user_data.get("default_language", "english")
 
     # Check Spotify tokens
@@ -340,8 +448,155 @@ def launch_app():
         spotify_token, spotify_refresh, str(spotify_expires_at)
     ])
 
-    flash("Music Player launched!", "success")
+    flash("Camera Music Player launched!", "success")
     return redirect(url_for("dashboard"))
+
+# --- NEW VITALS PLAYER API ROUTES ---
+
+@app.route("/get_music_recommendation", methods=['POST'])
+def get_music_recommendation():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json() or {}
+    emotion = (data.get('emotion') or '').strip().lower()
+    language = (data.get('language') or '').strip().lower()
+    mode = data.get('mode')
+
+    # --- Spotify Mode ---
+    if mode == 'Spotify':
+        user = users_col.find_one({"email": session["user"]["email"]})
+        token = user.get("spotify_access_token")
+        if not token or time.time() > user.get("spotify_expires_at", 0):
+            return jsonify({"error": "Spotify token invalid or expired"}), 400
+
+        try:
+            sp = spotipy.Spotify(auth=token)
+        except Exception as e:
+            return jsonify({"error": f"Spotify init error: {str(e)}"}), 500
+
+        # Synonyms for stronger matching
+        LANGUAGE_SYNONYMS = {
+            "english": ["english", "hollywood"],
+            "hindi": ["hindi", "bollywood"],
+            "malayalam": ["malayalam", "mollywood"],
+            "tamil": ["tamil", "kollywood"],
+        }
+        EMOTION_SYNONYMS = {
+            "happy": ["happy", "joy", "positive", "vibes", "energetic", "bright"],
+            "sad": ["sad", "melancholy", "blue", "down"],
+            "angry": ["angry", "rage", "furious"],
+            "neutral": ["neutral", "calm", "chill", "relaxed"],
+        }
+
+        lang_keywords = LANGUAGE_SYNONYMS.get(language, [language])
+        emo_keywords = EMOTION_SYNONYMS.get(emotion, [emotion])
+
+        # 1) Build query variations
+        query_variants = [
+            f"{language} {emotion}",
+            f"{emotion} {language}",
+            f"{emotion} vibes {language}",
+            f"{language} {emotion} vibes",
+            f"{language} {emotion} playlist"
+        ]
+
+        candidate_ids = []
+        seen_ids = set()
+
+        for q in query_variants:
+            try:
+                results = sp.search(q=q, type="playlist", limit=10)
+                items = results.get("playlists", {}).get("items", []) or []
+                for p in items:
+                    pid = p.get("id")
+                    if pid and pid not in seen_ids:
+                        seen_ids.add(pid)
+                        candidate_ids.append(pid)
+            except Exception as e:
+                app.logger.error("Spotify search error for '%s': %s", q, e)
+
+        # 2) Fetch details + filter
+        valid_candidates = []
+        for pid in candidate_ids[:15]:
+            try:
+                details = sp.playlist(pid, fields="id,name,description,followers,external_urls,owner")
+                text = f"{(details.get('name') or '').lower()} {(details.get('description') or '').lower()}"
+                # Check language AND emotion match
+                if any(k in text for k in lang_keywords) and any(k in text for k in emo_keywords):
+                    valid_candidates.append(details)
+            except Exception as e:
+                app.logger.error("Error fetching playlist details for %s: %s", pid, e)
+
+        # 3) Pick by followers
+        if valid_candidates:
+            best = max(valid_candidates, key=lambda p: p.get("followers", {}).get("total", 0))
+            return jsonify({
+                "type": "spotify",
+                "name": best.get("name", "Playlist"),
+                "url": best.get("external_urls", {}).get("spotify"),
+                "followers": best.get("followers", {}).get("total", 0)
+            })
+
+        # 4) Fallback: emotion-only
+        try:
+            results = sp.search(q=f"{emotion} playlist", type="playlist", limit=5)
+            items = results.get("playlists", {}).get("items", []) or []
+            if items:
+                pid = items[0]["id"]
+                details = sp.playlist(pid, fields="id,name,followers,external_urls")
+                return jsonify({
+                    "type": "spotify",
+                    "name": details.get("name", "Playlist"),
+                    "url": details.get("external_urls", {}).get("spotify"),
+                    "followers": details.get("followers", {}).get("total", 0)
+                })
+        except Exception as e:
+            app.logger.error("Final fallback Spotify search failed: %s", e)
+
+        return jsonify({"error": f"No Spotify playlists found for {language} {emotion}"}), 404
+
+    # --- Local Mode ---
+    elif mode == 'Local':
+        base_path = os.path.join('static', 'music', language, emotion)
+        if not os.path.isdir(base_path):
+            return jsonify({"type": "local", "tracks": []})
+
+        tracks = []
+        for fname in sorted(os.listdir(base_path)):
+            if fname.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a')):
+                tracks.append({
+                    "name": os.path.splitext(fname)[0],
+                    "path": url_for('static', filename=f"music/{language}/{emotion}/{fname}")
+                })
+        return jsonify({"type": "local", "tracks": tracks})
+
+    else:
+        return jsonify({"error": "Unknown mode"}), 400
+
+
+
+@app.route("/log_vitals_history", methods=['POST'])
+def log_vitals_history():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    user_email = session["user"]["email"]
+
+    record = {
+        "user_email": user_email,
+        "language": data.get("language"),
+        "emotion": data.get("emotion"),
+        "detection_mode": "vitals",
+        "type": "spotify_play" if data.get("playlist_name") else "local_play",
+        "song_name": data.get("song_name"),
+        "playlist_name": data.get("playlist_name"),
+    }
+    history_col.insert_one(record)
+    return jsonify({"status": "success"}), 200
+
+# --- END OF VITALS PLAYER API ROUTES ---
 
 
 # ----- Spotify Login -----
@@ -418,8 +673,53 @@ def unlink_spotify():
 # ----------------------
 # Run Flask
 # ----------------------
+# --- NEW VITALS PLAYER & LOCKING API ROUTES ---
+
+def map_vitals_to_emotion(bpm, hrv):
+    """Maps BPM and HRV to an emotional state."""
+    if bpm > 100 and hrv < 25: return "angry"
+    if bpm > 90 and hrv > 40: return "happy"
+    if bpm < 70 and hrv < 30: return "sad"
+    return "neutral"
+
+ 
+@socketio.on('connect')
+def handle_connect():
+    print('Web client connected to WebSocket')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Web client disconnected')
+
+# This is a separate channel for your ESP32 hardware to connect to
+@socketio.on('connect', namespace='/hardware')
+def handle_hardware_connect():
+    print(f'Hardware client connected: {request.sid}')
+
+# This function will listen for 'vitals_update' messages from your ESP32
+@socketio.on('vitals_update', namespace='/hardware')
+def handle_vitals_update(data):
+    """
+    Receives data from ESP32 and broadcasts it to the web client.
+    The ESP32 should send data like: {'bpm': 85, 'hrv': 45}
+    """
+    print(f"Received vitals from hardware: {data}")
+
+    # Use your existing function to figure out the emotion
+    emotion = map_vitals_to_emotion(data.get('bpm', 0), data.get('hrv', 0))
+
+    # Prepare the final data to send to the webpage
+    payload = {
+        'bpm': data.get('bpm'),
+        'hrv': data.get('hrv'),
+        'detected_emotion': emotion
+    }
+
+    # Broadcast this payload to the vitals_player.html webpage
+    socketio.emit('vitals_from_server', payload)
+
 if __name__ == "__main__":
     host = "127.0.0.1"
     port = 5000
     print(f"🚀 Your Flask app is running at: http://{host}:{port}/")
-    app.run(host=host, port=port, debug=True)
+    socketio.run(app, host=host, port=port, debug=True)

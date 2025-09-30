@@ -80,6 +80,87 @@
         .history-section form { margin-top: 20px; }
         .hidden { display:none; }
         @media (max-width:500px) { .stat-value { font-size:20px; } .history-list li { font-size:14px; padding:12px; } .navbar .app-title { display: none; } }
+        .tab-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #888;
+            position: relative;
+            bottom: -2px;
+            transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tab-btn:hover {
+            color: #4a6cf7;
+        }
+        .tab-btn.active {
+            color: #4a6cf7;
+            border-bottom: 3px solid #4a6cf7;
+        }
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .history-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #f9f9f9;
+            margin-bottom: 12px;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #4a6cf7;
+            transition: all 0.3s;
+        }
+        .history-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.12);
+        }
+        .history-card-icon {
+            font-size: 28px;
+            color: #4a6cf7;
+        }
+        .history-card-details {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .history-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .history-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+ 
+    
     </style>
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
@@ -91,7 +172,7 @@
         <div class="dropdown">
             <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
             <div class="dropdown-content" id="dropdown-content">
-                <a href="{{ url_for('home') }}"><i class="fas fa-home"></i> Back to Home</a>
+                 
                 <a href="{{ url_for('edit_profile') }}"><i class="fas fa-user-edit"></i> Edit Profile</a>
             </div>
         </div>
@@ -100,6 +181,11 @@
     </nav>
     <div class="dashboard-container">
         <div class="dashboard-header">
+            {% if user_profile_pic %}
+                <img src="{{ url_for('static', filename='profile_pics/' + user_profile_pic) }}" alt="Profile Picture" class="user-avatar-img">
+            {% else %}
+                <div class="user-avatar">{{ username[0].upper() }}</div>
+            {% endif %}
             <h1>Welcome Back, {{ username }}!</h1>
             <p>Your personal emotion-based music experience</p>
         </div>
@@ -124,22 +210,7 @@
                         <a href="{{ url_for('vitals_player') }}" class="btn btn-secondary"><i class="fas fa-heartbeat"></i> Launch Vitals Player</a>
                     </div>
                 </div>
-                <div class="card">
-                    <i class="fas fa-chart-pie card-icon"></i>
-                    <h3>Your Statistics</h3>
-                    <p>View your emotion detection and listening analytics.</p>
-                    <div class="card-action-area">
-                        <button class="btn btn-default" id="toggleStatsBtn" aria-expanded="false" aria-controls="stats"><i class="fas fa-chart-bar"></i> Show Stats</button>
-                    </div>
-                </div>
-                <div class="card">
-                    <i class="fas fa-history card-icon"></i>
-                    <h3>Listening History</h3>
-                    <p>Review your previously played songs and playlists.</p>
-                    <div class="card-action-area">
-                        <button class="btn btn-default" id="toggleHistoryBtn" aria-expanded="false" aria-controls="history-section"><i class="fas fa-history"></i> Show History</button>
-                    </div>
-                </div>
+                 
                 <div class="card">
                     <i class="fab fa-spotify card-icon"></i>
                     <h3>Spotify Account</h3>
@@ -157,58 +228,115 @@
                     </div>
                 </div>
             </div>
-            <div class="stats-container hidden" id="stats">
-                <h3><i class="fas fa-chart-pie"></i> Emotion Statistics</h3>
-                {% if stats %}
-                    <div class="stats-grid">
-                        {% for emotion, count in stats.items() %}
-                            <div class="stat-item">
-                                <div class="stat-value">{{ count }}</div>
-                                <div class="stat-label">{{ emotion.capitalize() }} Detections</div>
-                            </div>
-                        {% endfor %}
+            <div class="tab-container">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="history">
+                        <i class="fas fa-history"></i> Listening History
+                    </button>
+                    <button class="tab-btn" data-tab="stats">
+                        <i class="fas fa-chart-pie"></i> Emotion Statistics
+                    </button>
+                </div>
+
+                <div class="tab-content-area">
+                    <div class="tab-pane active" id="history-content">
+                        {% if history %}
+                            <ul class="history-list">
+                                {% for item in history %}
+                                    <li class="history-card">
+                                        <div class="history-card-icon">
+                                            {% if item.get("emotion") == 'happy' %}<i class="fas fa-smile-beam"></i>
+                                            {% elif item.get("emotion") == 'sad' %}<i class="fas fa-sad-tear"></i>
+                                            {% elif item.get("emotion") == 'angry' %}<i class="fas fa-angry"></i>
+                                            {% else %}<i class="fas fa-meh"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="history-card-details">
+                                            <span class="history-emotion">Played for {{ item.get("emotion","N/A").capitalize() }}</span>
+                                            <span class="history-track">
+                                                {% if item.get("song_name") %}<i class="fas fa-music"></i> Song: {{ item.get("song_name") }}
+                                                {% elif item.get("playlist_name") %}<i class="fas fa-list"></i> Playlist: {{ item.get("playlist_name") }}
+                                                {% else %}<i class="fas fa-question-circle"></i> Unknown Track
+                                                {% endif %}
+                                            </span>
+                                            <div class="history-meta">
+                                                <span><i class="fas fa-globe"></i> {{ item.get("language","N/A").capitalize() }}</span>
+                                                <span>
+                                                    {% if item.get("detection_mode") == 'camera' %}<i class="fas fa-camera"></i>
+                                                    {% else %}<i class="fas fa-heartbeat"></i>
+                                                    {% endif %}
+                                                    {{ item.get("detection_mode", "N/A").capitalize() }} Mode
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                            <form action="{{ url_for('delete_history') }}" method="POST" onsubmit="return confirm('Are you sure you want to delete your entire music history? This cannot be undone.');">
+                                <button type="submit" class="btn btn-spotify-unlink"><i class="fas fa-trash"></i> Delete All History</button>
+                            </form>
+                        {% else %}
+                            <p>No music history yet. Play a song to see your journey here!</p>
+                        {% endif %}
                     </div>
-                {% else %}
-                    <p>No statistics yet. Launch the player to start tracking emotions!</p>
-                {% endif %}
+
+                    <div class="tab-pane" id="stats-content">
+                        {% if stats %}
+                            <div class="stats-grid">
+                                {% for emotion, count in stats.items() %}
+                                    <div class="stat-item">
+                                        <div class="stat-value">{{ count }}</div>
+                                        <div class="stat-label">{{ emotion.capitalize() }} Detections</div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p>No statistics yet. Launch the player to start tracking emotions!</p>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            <div class="history-section hidden" id="history-section">
-                <div class="history-header"><h3><i class="fas fa-history"></i> Your Music History</h3></div>
-                {% if history %}
-                    <ul class="history-list">
-                        {% for item in history %}
-                            <li>
-                                <span class="history-emotion"><i class="fas fa-smile"></i> Played for {{ item.get("emotion","N/A").capitalize() }}</span>
-                                <span class="history-language"><i class="fas fa-globe"></i> Language: {{ item.get("language","N/A").capitalize() }}</span>
-                                <span class="history-mode">
-                                    {% if item.get("detection_mode") == 'camera' %}<i class="fas fa-camera"></i>
-                                    {% elif item.get("detection_mode") == 'vitals' %}<i class="fas fa-heartbeat"></i>
-                                    {% else %}<i class="fas fa-question-circle"></i>
-                                    {% endif %}
-                                    Mode: {{ item.get("detection_mode", "N/A").capitalize() }}
-                                </span>
-                                <span class="history-track">
-                                    {% if item.get("song_name") %}<i class="fas fa-music"></i> Song: {{ item.get("song_name") }}
-                                    {% elif item.get("playlist_name") %}<i class="fas fa-list"></i> Playlist: {{ item.get("playlist_name") }}
-                                    {% else %}<i class="fas fa-question-circle"></i> Unknown Track
-                                    {% endif %}
-                                </span>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                    <form action="{{ url_for('delete_history') }}" method="POST" onsubmit="return confirm('Are you sure you want to delete your entire music history? This cannot be undone.');">
-                        <button type="submit" class="btn btn-spotify-unlink"><i class="fas fa-trash"></i> Delete All History</button>
-                    </form>
-                {% else %}
-                    <p>No music history yet. Play a song to see your journey here!</p>
-                {% endif %}
-            </div>
+             
         </div>
     </div>
     <script>
-        document.getElementById("toggleStatsBtn").addEventListener("click", function() { const section = document.getElementById("stats"); const btn = this; const isHidden = section.classList.contains("hidden"); section.classList.toggle("hidden"); btn.setAttribute("aria-expanded", isHidden ? "true" : "false"); btn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> Hide Stats' : '<i class="fas fa-chart-bar"></i> Show Stats'; });
-        document.getElementById("toggleHistoryBtn").addEventListener("click", function() { const section = document.getElementById("history-section"); const btn = this; const isHidden = section.classList.contains("hidden"); section.classList.toggle("hidden"); btn.setAttribute("aria-expanded", isHidden ? "true" : "false"); btn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> Hide History' : '<i class="fas fa-history"></i> Show History'; });
-        document.addEventListener('DOMContentLoaded', function() { const menuBtn = document.getElementById('menu-btn'); const dropdown = menuBtn.parentElement; menuBtn.addEventListener('click', function(event) { event.stopPropagation(); dropdown.classList.toggle('active'); }); document.addEventListener('click', function(event) { if (!dropdown.contains(event.target)) { dropdown.classList.remove('active'); } }); });
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Deactivate all buttons and panes
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Activate the clicked button
+                button.classList.add('active');
+
+                // Activate the corresponding content pane
+                const tabId = button.dataset.tab;
+                const activePane = document.getElementById(tabId + '-content');
+                if (activePane) {
+                    activePane.classList.add('active');
+                }
+            });
+        });
+
+        // --- Original logic for menu dropdown ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuBtn = document.getElementById('menu-btn');
+            const dropdown = menuBtn.parentElement;
+
+            menuBtn.addEventListener('click', function(event) {
+                event.stopPropagation();
+                dropdown.classList.toggle('active');
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!dropdown.contains(event.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        });
     </script>
 </body>
 </html>

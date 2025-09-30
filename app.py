@@ -15,7 +15,9 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from flask_mail import Mail, Message
 from forms import RegistrationForm
-# In app.py
+from flask_socketio import SocketIO, emit 
+from werkzeug.utils import secure_filename
+import uuid 
 import logging
 
 # --- ADD THIS LOGGING CONFIGURATION ---
@@ -40,6 +42,14 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 # Initialize Flask and Mongo
 # ----------------------
 app = Flask(__name__)
+# Add this block right after app = Flask(__name__)
+
+app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 # Configure Flask-Mail
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
@@ -49,13 +59,16 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 app.secret_key = SECRET_KEY
 bcrypt = Bcrypt(app)
+socketio = SocketIO(app)
 
 client = MongoClient(MONGO_URI)
 db = client["emotion_music_app"]
 users_col = db["users"]
 history_col = db["music_history"]
+spotify_state_col = db["spotify_state"]
 users_col.create_index("email", unique=True)
 history_col.create_index("user_email")
+spotify_state_col.create_index([("user_email", 1), ("playlist_id", 1)], unique=True)
 
 # In app.py
 
@@ -98,6 +111,52 @@ def get_spotify_oauth(scope=None):
         scope=scope
     )
 
+# --- NEW: Reusable function to check Spotify status and refresh token ---
+def _check_and_refresh_spotify_token(user_email):
+    """
+    Checks a user's Spotify token, refreshes if expired, and returns the current token.
+    Returns a tuple: (token, is_premium_status)
+    """
+    user_data = users_col.find_one({"email": user_email})
+    
+    spotify_token = user_data.get("spotify_access_token")
+    spotify_refresh = user_data.get("spotify_refresh_token")
+    spotify_expires_at = user_data.get("spotify_expires_at")
+    is_premium = user_data.get("is_spotify_premium", False)
+
+    if not all([spotify_token, spotify_refresh, spotify_expires_at]):
+        return None, is_premium
+
+    if time.time() > spotify_expires_at:
+        try:
+            sp_oauth = get_spotify_oauth()
+            new_token_info = sp_oauth.refresh_access_token(spotify_refresh)
+            
+            spotify_token = new_token_info["access_token"] # Use the new token
+            
+            users_col.update_one(
+                {"email": user_email},
+                {"$set": {
+                    "spotify_access_token": new_token_info["access_token"],
+                    "spotify_expires_at": new_token_info["expires_at"]
+                }}
+            )
+            logging.info(f"Successfully refreshed Spotify token for {user_email}")
+        except Exception as e:
+            logging.error(f"Could not refresh Spotify token for {user_email}: {e}")
+            return None, is_premium
+    
+    # After ensuring token is valid, we can also re-check premium status
+    try:
+        sp = spotipy.Spotify(auth=spotify_token)
+        user_info = sp.current_user()
+        is_premium = user_info.get('product') == 'premium'
+        users_col.update_one({"email": user_email}, {"$set": {"is_spotify_premium": is_premium}})
+    except Exception:
+        # If this fails, we can rely on the last known status from the DB
+        pass
+
+    return spotify_token, is_premium
 # ----------------------
 # Routes
 # ----------------------
@@ -197,39 +256,35 @@ def dashboard():
         return redirect(url_for("login"))
 
     email = session["user"]["email"]
-    username = session["user"]["username"]
+    user_data = users_col.find_one({"email": email}) or {}
 
-    # Fetch listening history
+    # --- EXISTING LOGIC (No changes here) ---
     history = list(history_col.find({
         "user_email": email,
         "type": {"$in": ["local_play", "spotify_play"]}
     }).sort('_id', -1))
-
-    # Compute emotion stats
     stats = {}
     for entry in history:
         emo = entry.get("emotion", "neutral")
         stats[emo] = stats.get(emo, 0) + 1
 
-    # Fetch user document from DB
-    user_data = users_col.find_one({"email": email}) or {}
-
-    # Detect whether Spotify is linked
-    # This is the new, smarter check
     spotify_linked = False
     expires_at = user_data.get("spotify_expires_at")
     access_token = user_data.get("spotify_access_token")
-
     if access_token and expires_at and time.time() < expires_at:
         spotify_linked = True
 
+    # --- NEW: Get the profile picture filename ---
+    user_profile_pic = user_data.get("profile_pic", None)
+
     return render_template(
         "dashboard.html",
-        username=username,
+        username=user_data.get("username"),
         email=email,
         history=history,
         stats=stats,
-        user_spotify_linked=spotify_linked
+        user_spotify_linked=spotify_linked,
+        user_profile_pic=user_profile_pic  # Pass filename to the template
     )
 
 # ----- Vitals Player Route -----
@@ -238,21 +293,20 @@ def vitals_player():
     if "user" not in session:
         return redirect(url_for("login"))
     
-    user_data = users_col.find_one({"email": session["user"]["email"]})
+    user_email = session["user"]["email"]
+    user_data = users_col.find_one({"email": user_email})
     default_language = user_data.get("default_language", "english")
     
-    # NEW: Check Spotify connection status
-    is_spotify_connected = False
-    spotify_expires_at = user_data.get("spotify_expires_at")
-    spotify_access_token = user_data.get("spotify_access_token")
-    if spotify_access_token and spotify_expires_at and time.time() < spotify_expires_at:
-        is_spotify_connected = True
+    # --- MODIFIED: Use the new helper function for a consistent check ---
+    spotify_token, _ = _check_and_refresh_spotify_token(user_email)
+    is_spotify_connected = True if spotify_token else False
+    # -----------------------------------------------------------------
     
     return render_template(
         "vitals_player.html", 
         username=session["user"]["username"], 
         default_language=default_language,
-        is_spotify_connected=is_spotify_connected  # Pass the new variable
+        is_spotify_connected=is_spotify_connected  # Pass the reliable status
     )
 
 # ----- Edit Profile Route -----
@@ -265,40 +319,90 @@ def edit_profile():
     user_data = users_col.find_one({"email": user_email})
 
     if request.method == "POST":
+        # --- PROFILE PICTURE LOGIC ---
+        if 'profile_pic' in request.files:
+            file = request.files['profile_pic']
+            if file and file.filename != '' and allowed_file(file.filename):
+                # Create a unique filename to prevent conflicts
+                filename_ext = file.filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{uuid.uuid4()}.{filename_ext}"
+
+                # Delete old picture if it exists
+                old_pic = user_data.get("profile_pic")
+                if old_pic:
+                    try:
+                        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], old_pic))
+                    except OSError as e:
+                        print(f"Error deleting old profile picture: {e}")
+
+                # Save the new file and update the database
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+                users_col.update_one({"email": user_email}, {"$set": {"profile_pic": unique_filename}})
+                flash("Profile picture updated!", "success")
+
+        # --- EXISTING PROFILE UPDATE LOGIC ---
         new_username = request.form["username"]
         new_email = request.form["email"]
         new_password = request.form["password"]
         new_language = request.form["language"]
 
-        # Check if the new email is already taken by another user
         if new_email != user_email and users_col.find_one({"email": new_email}):
             flash("That email address is already in use.", "danger")
             return render_template("edit_profile.html", user=user_data)
 
-        # Prepare update data
         update_data = {
             "username": new_username,
             "email": new_email,
             "default_language": new_language
         }
-
-        # If a new password was entered, hash and include it
         if new_password:
             hashed_pw = bcrypt.generate_password_hash(new_password).decode("utf-8")
             update_data["password"] = hashed_pw
 
-        # Update the database
         users_col.update_one({"email": user_email}, {"$set": update_data})
 
-        # Update the session with new details
         session["user"]["username"] = new_username
         session["user"]["email"] = new_email
         session.modified = True
 
-        flash("Profile updated successfully!", "success")
+        flash("Profile details updated successfully!", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("edit_profile.html", user=user_data)
+
+# Add this entire function to app.py
+
+# REPLACE your existing delete_profile_pic function with this one
+
+@app.route("/delete_profile_pic", methods=["POST"])
+def delete_profile_pic():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    user_email = session["user"]["email"]
+    user_data = users_col.find_one({"email": user_email})
+    
+    profile_pic_filename = user_data.get("profile_pic")
+    
+    if profile_pic_filename:
+        # 1. Delete the file from the server
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], profile_pic_filename)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except OSError as e:
+            print(f"Error deleting profile picture file: {e}")
+            flash("An error occurred while deleting the picture.", "danger")
+            return redirect(url_for('edit_profile'))
+            
+        # 2. Remove the field from the database
+        users_col.update_one(
+            {"email": user_email},
+            {"$unset": {"profile_pic": ""}}
+        )
+        flash("Profile picture has been deleted.", "success")
+        
+    return redirect(url_for('edit_profile'))
 
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
@@ -357,97 +461,212 @@ def launch_app():
 
     user_email = session["user"]["email"]
     user_data = users_col.find_one({"email": user_email})
-    # --- NEW: LOCKING MECHANISM ---
+    
+    # --- LOCKING MECHANISM (No changes here) ---
     lock = user_data.get("player_lock", {"status": "none", "timestamp": 0})
-    # A lock is stale if it's older than 60 seconds
     is_stale = (time.time() - lock.get("timestamp", 0)) > 60 
 
     if lock["status"] != "none" and not is_stale:
         flash(f"Another player ({lock['status']} mode) is already active. Please close it first.", "danger")
         return redirect(url_for("dashboard"))
 
-    # Set a new lock for the desktop app
     users_col.update_one(
         {"email": user_email},
         {"$set": {"player_lock": {"status": "desktop", "timestamp": time.time()}}}
     )
     # --- END LOCKING MECHANISM ---
+    
     default_language = user_data.get("default_language", "english")
+    
+    # --- MODIFIED: Use the new helper function for a consistent and clean check ---
+    spotify_token, is_premium = _check_and_refresh_spotify_token(user_email)
 
-    # Check Spotify tokens
-    spotify_token = user_data.get("spotify_access_token")
-    spotify_refresh = user_data.get("spotify_refresh_token")
-    spotify_expires_at = user_data.get("spotify_expires_at")
+    # After the check, we get the latest user_data to pass the refresh token and expiry date
+    # This ensures that if the token was refreshed, we pass the new details.
+    latest_user_data = users_col.find_one({"email": user_email}) 
+    spotify_refresh = latest_user_data.get("spotify_refresh_token")
+    spotify_expires_at = latest_user_data.get("spotify_expires_at")
+    # --- END OF MODIFICATION ---
 
-    # If any token is missing, set them as empty
-    if not spotify_token or not spotify_refresh or not spotify_expires_at:
-        spotify_token = spotify_refresh = spotify_expires_at = ""
-        flash("Spotify not connected. Spotify mode will be disabled.", "info")
-
-    # Launch main.py with tokens
     subprocess.Popen([
         sys.executable, "main.py",
-        user_email, default_language,
-        spotify_token, spotify_refresh, str(spotify_expires_at)
+        user_email, 
+        default_language,
+        spotify_token or "",
+        spotify_refresh or "",
+        str(spotify_expires_at or 0),
+        str(is_premium) # Pass premium status as the 6th argument
     ])
 
     flash("Camera Music Player launched!", "success")
     return redirect(url_for("dashboard"))
 
-# --- NEW VITALS PLAYER API ROUTES ---
+
+# --- NEW API ROUTES FOR VITALS PLAYER LOCAL MUSIC RESUME ---
+
+# --- NEW API ROUTES FOR VITALS PLAYER LOCAL MUSIC RESUME ---
+
+@app.route('/local-music/get-resume-state', methods=['GET'])
+def get_local_resume_state():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_email = session["user"]["email"]
+    language = request.args.get('language')
+    emotion = request.args.get('emotion')
+
+    if not all([language, emotion]):
+        return jsonify({"error": "Missing language or emotion"}), 400
+
+    # We look for a special record in the history collection
+    doc = history_col.find_one({
+        "user_email": user_email,
+        "type": "local_resume",
+        "language": language,
+        "emotion": emotion
+    })
+
+    if doc and "last_song_index" in doc:
+        return jsonify({"index": doc["last_song_index"]})
+    else:
+        # If no record exists, start from the beginning of the playlist
+        return jsonify({"index": 0})
+
+@app.route('/local-music/log-resume-state', methods=['POST'])
+def log_local_resume_state():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    data = request.get_json()
+    user_email = session["user"]["email"]
+
+    # Update or create a record for this specific playlist
+    history_col.update_one(
+        {
+            "user_email": user_email,
+            "type": "local_resume",
+            "language": data.get("language"),
+            "emotion": data.get("emotion")
+        },
+        {
+            "$set": {
+                "last_song_index": data.get("index"),
+                "last_song_name": data.get("song_name")
+            }
+        },
+        upsert=True # This creates the document if it doesn't exist
+    )
+    return jsonify({"status": "success"})
+
+# --- END OF NEW ROUTES ---
+
+# --- END OF NEW ROUTES ---
 
 @app.route("/get_music_recommendation", methods=['POST'])
 def get_music_recommendation():
     if "user" not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json()
-    emotion = data.get('emotion')
-    language = data.get('language')
+    data = request.get_json() or {}
+    emotion = (data.get('emotion') or '').strip().lower()
+    language = (data.get('language') or '').strip().lower()
     mode = data.get('mode')
 
+    # --- Spotify Mode ---
     if mode == 'Spotify':
-        user = users_col.find_one({"email": session["user"]["email"]})
-        token = user.get("spotify_access_token")
-        if not token or time.time() > user.get("spotify_expires_at", 0):
+        token, _ = _check_and_refresh_spotify_token(session["user"]["email"])
+        if not token:
             return jsonify({"error": "Spotify token invalid or expired"}), 400
-        
-        sp = spotipy.Spotify(auth=token)
-        query = f"{language} {emotion} vibes"
-        try:
-            results = sp.search(q=query, type="playlist", limit=10)
-            playlists = results.get('playlists', {}).get('items', [])
-            if not playlists:
-                return jsonify({"error": "No playlists found"}), 404
 
-            playlist = playlists[0] # Pick the first result
+        try:
+            sp = spotipy.Spotify(auth=token)
+        except Exception as e:
+            return jsonify({"error": f"Spotify init error: {str(e)}"}), 500
+
+        # --- UNIFIED SEARCH LOGIC ---
+        LANGUAGE_SYNONYMS = {
+            "english": ["english", "hollywood"], "hindi": ["hindi", "bollywood"],
+            "malayalam": ["malayalam", "mollywood"], "tamil": ["tamil", "kollywood"],
+        }
+        EMOTION_SYNONYMS = {
+            "happy": ["happy", "joy", "positive", "vibe", "energetic"],
+            "sad": ["sad", "melancholy", "blue", "down"],
+            "angry": ["angry", "rage", "furious"], "neutral": ["neutral", "calm", "chill", "relaxed"],
+        }
+        lang_keywords = LANGUAGE_SYNONYMS.get(language, [language])
+        emo_keywords = EMOTION_SYNONYMS.get(emotion, [emotion])
+
+        query_templates = [f"{language} {emotion}", f"{emotion} {language}", f"{language} {emotion} playlist", f"{emotion} vibes"]
+        seen_ids = set()
+        app.logger.info(f"🔎 Dynamically searching Spotify for a {language} {emotion} playlist...")
+        for q in query_templates:
+            try:
+                results = sp.search(q=q, type="playlist", limit=15)
+                items = results.get("playlists", {}).get("items", []) or []
+                for p in items:
+                    if p and p.get("id"):
+                        seen_ids.add(p.get("id"))
+            except Exception as e:
+                app.logger.error(f"Spotify search error for '{q}': {e}")
+
+        valid_candidates = []
+        if seen_ids:
+            app.logger.info(f"Found {len(seen_ids)} potential playlists. Fetching details...")
+            for pid in list(seen_ids):
+                try:
+                    details = sp.playlist(pid, fields="id,uri,name,description,followers,external_urls")
+                    text = f"{(details.get('name') or '').lower()} {(details.get('description') or '').lower()}"
+                    if any(k in text for k in lang_keywords) and any(k in text for k in emo_keywords):
+                        valid_candidates.append(details)
+                except Exception as e:
+                    app.logger.error(f"Error fetching playlist details for {pid}: {e}")
+
+        chosen_playlist = None
+        if valid_candidates:
+            app.logger.info(f"Found {len(valid_candidates)} relevant playlists. Selecting the most popular.")
+            chosen_playlist = max(valid_candidates, key=lambda p: p.get("followers", {}).get("total", 0))
+
+        if not chosen_playlist:
+            app.logger.info("Primary search failed. Trying fallback search...")
+            try:
+                results = sp.search(q=f"{emotion} playlist", type="playlist", limit=1)
+                items = results.get("playlists", {}).get("items", []) or []
+                if items:
+                    pid = items[0]["id"]
+                    chosen_playlist = sp.playlist(pid, fields="id,uri,name,followers,external_urls")
+            except Exception as e:
+                app.logger.error(f"Final fallback Spotify search failed: {e}")
+
+        if chosen_playlist:
             return jsonify({
                 "type": "spotify",
-                "name": playlist['name'],
-                "url": playlist['external_urls']['spotify']
+                "name": chosen_playlist.get("name", "Playlist"),
+                "url": chosen_playlist.get("external_urls", {}).get("spotify"),
+                "followers": chosen_playlist.get("followers", {}).get("total", 0),
+                "id": chosen_playlist.get("id"),
+                "uri": chosen_playlist.get("uri")
             })
-        except Exception as e:
-            return jsonify({"error": f"Spotify API error: {str(e)}"}), 500
+        
+        return jsonify({"error": f"No Spotify playlists found for {language} {emotion}"}), 404
+        # --- END OF UNIFIED LOGIC ---
 
+    # --- Local Mode ---
     elif mode == 'Local':
-        # IMPORTANT: Assumes your music is in 'static/music/{language}/{emotion}'
         base_path = os.path.join('static', 'music', language, emotion)
         if not os.path.isdir(base_path):
             return jsonify({"type": "local", "tracks": []})
-
-        try:
-            song_files = [f for f in os.listdir(base_path) if f.lower().endswith('.mp3')]
-            tracks = []
-            for song in song_files:
+        tracks = []
+        for fname in sorted(os.listdir(base_path)):
+            if fname.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a')):
                 tracks.append({
-                    "name": os.path.splitext(song)[0],
-                    "path": f"/static/music/{language}/{emotion}/{song}"
+                    "name": os.path.splitext(fname)[0],
+                    "path": url_for('static', filename=f"music/{language}/{emotion}/{fname}")
                 })
-            return jsonify({"type": "local", "tracks": tracks})
-        except Exception as e:
-            return jsonify({"error": f"Error reading local files: {str(e)}"}), 500
-    
-    return jsonify({"error": "Invalid mode"}), 400
+        return jsonify({"type": "local", "tracks": tracks})
+    else:
+        return jsonify({"error": "Unknown mode"}), 400
+
+
 
 @app.route("/log_vitals_history", methods=['POST'])
 def log_vitals_history():
@@ -478,7 +697,11 @@ def spotify_login():
     if "user" not in session:
         return redirect(url_for("login"))
 
-    scope = "user-read-playback-state user-read-private playlist-read-private playlist-read-collaborative"
+    scope = (
+        "user-read-playback-state user-modify-playback-state "
+        "user-read-private user-read-email "
+        "playlist-read-private playlist-read-collaborative"
+    )
     sp_oauth = get_spotify_oauth(scope)
 
     # Get the base URL first
@@ -504,15 +727,22 @@ def spotify_callback():
 
     try:
         token_info = sp_oauth.get_access_token(code, check_cache=False)
-        
         user_email = session["user"]["email"]
 
+        # --- NEW: Check for premium status and save it ---
+        sp = spotipy.Spotify(auth=token_info['access_token'])
+        user_info = sp.current_user()
+        is_premium = user_info.get('product') == 'premium'
+        # ------------------------------------------------
+
+        # --- MODIFIED: Added is_spotify_premium to the update ---
         users_col.update_one(
             {"email": user_email},
             {"$set": {
                 "spotify_access_token": token_info["access_token"],
                 "spotify_refresh_token": token_info["refresh_token"],
-                "spotify_expires_at": token_info["expires_at"]
+                "spotify_expires_at": token_info["expires_at"],
+                "is_spotify_premium": is_premium # Save the user's premium status
             }}
         )
         flash("Spotify account connected successfully!", "success")
@@ -536,7 +766,8 @@ def unlink_spotify():
         {"$unset": {
             "spotify_access_token": "",
             "spotify_refresh_token": "",
-            "spotify_expires_at": ""
+            "spotify_expires_at": "",
+            "is_spotify_premium": "" # Also remove the premium flag
         }}
     )
 
@@ -548,6 +779,142 @@ def unlink_spotify():
 # ----------------------
 # --- NEW VITALS PLAYER & LOCKING API ROUTES ---
 
+# --- NEW: API routes for saving/loading Spotify playback state ---
+
+@app.route("/log_spotify_state", methods=["POST"])
+def log_spotify_state():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    if not data or not data.get("playlist_id") or not data.get("track_uri"):
+        return jsonify({"error": "Missing required data"}), 400
+
+    user_email = session["user"]["email"]
+    
+    spotify_state_col.update_one(
+        {"user_email": user_email, "playlist_id": data["playlist_id"]},
+        {
+            "$set": {
+                "track_uri": data["track_uri"],
+                "progress_ms": data.get("progress_ms", 0),
+                "timestamp": time.time()
+            }
+        },
+        upsert=True
+    )
+    return jsonify({"status": "success"}), 200
+
+@app.route("/get_spotify_state/<playlist_id>", methods=["GET"])
+def get_spotify_state(playlist_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_email = session["user"]["email"]
+    
+    state = spotify_state_col.find_one(
+        {"user_email": user_email, "playlist_id": playlist_id}
+    )
+    
+    if state:
+        # Convert ObjectId to string for JSON serialization
+        state['_id'] = str(state['_id'])
+        return jsonify(state)
+    else:
+        return jsonify({}), 404 # Return empty object if no state found
+        
+# --- END OF NEW API ROUTES ---
+
+# --- NEW API ROUTES FOR VITALS PLAYER SPOTIFY CONTROL ---
+
+@app.route("/spotify/devices", methods=["GET"])
+def get_spotify_devices():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    token, is_premium = _check_and_refresh_spotify_token(session["user"]["email"])
+    if not token or not is_premium:
+        return jsonify({"devices": []})
+
+    try:
+        sp = spotipy.Spotify(auth=token)
+        devices = sp.devices()
+        return jsonify(devices or {"devices": []})
+    except Exception as e:
+        logging.error(f"Could not get Spotify devices: {e}")
+        return jsonify({"error": "Failed to get devices"}), 500
+
+@app.route("/spotify/play", methods=["POST"])
+def spotify_play():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    token, is_premium = _check_and_refresh_spotify_token(session["user"]["email"])
+    if not token or not is_premium:
+        return jsonify({"error": "Premium required"}), 403
+
+    data = request.get_json()
+    device_id = data.get("device_id")
+    context_uri = data.get("context_uri") # e.g., playlist URI
+    offset = data.get("offset") # e.g., {"uri": "track_uri"}
+    position_ms = data.get("position_ms", 0)
+
+    try:
+        sp = spotipy.Spotify(auth=token)
+        sp.start_playback(
+            device_id=device_id,
+            context_uri=context_uri,
+            offset=offset,
+            position_ms=position_ms
+        )
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logging.error(f"Spotify start_playback error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/spotify/player-action/<action>", methods=["POST"])
+def spotify_player_action(action):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    token, is_premium = _check_and_refresh_spotify_token(session["user"]["email"])
+    if not token or not is_premium:
+        return jsonify({"error": "Premium required"}), 403
+
+    device_id = request.get_json().get("device_id")
+    try:
+        sp = spotipy.Spotify(auth=token)
+        if action == 'pause':
+            sp.pause_playback(device_id=device_id)
+        elif action == 'resume':
+            sp.start_playback(device_id=device_id)
+        elif action == 'next':
+            sp.next_track(device_id=device_id)
+        elif action == 'previous':
+            sp.previous_track(device_id=device_id)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logging.error(f"Spotify action '{action}' error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/spotify/current-playback", methods=["GET"])
+def get_current_playback():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    token, _ = _check_and_refresh_spotify_token(session["user"]["email"])
+    if not token:
+        return jsonify(None)
+    
+    try:
+        sp = spotipy.Spotify(auth=token)
+        playback = sp.current_playback()
+        return jsonify(playback)
+    except Exception as e:
+        return jsonify(None)
+
+# --- END OF NEW VITALS PLAYER API ROUTES ---
+
 def map_vitals_to_emotion(bpm, hrv):
     """Maps BPM and HRV to an emotional state."""
     if bpm > 100 and hrv < 25: return "angry"
@@ -555,53 +922,44 @@ def map_vitals_to_emotion(bpm, hrv):
     if bpm < 70 and hrv < 30: return "sad"
     return "neutral"
 
-@app.route("/detect_from_vitals", methods=['POST'])
-def detect_from_vitals():
-    if "user" not in session: return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json()
-    bpm = data.get('bpm')
-    hrv = data.get('hrv')
-    if bpm is None or hrv is None: return jsonify({"error": "Missing data"}), 400
-    emotion = map_vitals_to_emotion(bpm, hrv)
-    return jsonify({"detected_emotion": emotion})
+ 
+@socketio.on('connect')
+def handle_connect():
+    print('Web client connected to WebSocket')
 
-@app.route("/request_player_lock", methods=['POST'])
-def request_player_lock():
-    if "user" not in session: return jsonify({"error": "Unauthorized"}), 401
-    user_email = session["user"]["email"]
-    user_data = users_col.find_one({"email": user_email})
-    lock = user_data.get("player_lock", {"status": "none", "timestamp": 0})
-    is_stale = (time.time() - lock.get("timestamp", 0)) > 15 # Shorter stale time for web
-    
-    if lock["status"] == "none" or is_stale:
-        users_col.update_one(
-            {"email": user_email},
-            {"$set": {"player_lock": {"status": "web", "timestamp": time.time()}}}
-        )
-        return jsonify({"status": "success", "message": "Lock acquired."})
-    else:
-        return jsonify({"status": "error", "message": f"Player is locked by {lock['status']} mode."}), 409
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Web client disconnected')
 
-@app.route("/release_player_lock", methods=['POST'])
-def release_player_lock():
-    if "user" not in session: return jsonify({"error": "Unauthorized"}), 401
-    users_col.update_one(
-        {"email": session["user"]["email"], "player_lock.status": "web"},
-        {"$set": {"player_lock": {"status": "none", "timestamp": 0}}}
-    )
-    return jsonify({"status": "success"})
+# This is a separate channel for your ESP32 hardware to connect to
+@socketio.on('connect', namespace='/hardware')
+def handle_hardware_connect():
+    print(f'Hardware client connected: {request.sid}')
 
-@app.route("/heartbeat_player_lock", methods=['POST'])
-def heartbeat_player_lock():
-    if "user" not in session: return jsonify({"error": "Unauthorized"}), 401
-    users_col.update_one(
-        {"email": session["user"]["email"], "player_lock.status": "web"},
-        {"$set": {"player_lock.timestamp": time.time()}}
-    )
-    return jsonify({"status": "success"})
+# This function will listen for 'vitals_update' messages from your ESP32
+@socketio.on('vitals_update', namespace='/hardware')
+def handle_vitals_update(data):
+    """
+    Receives data from ESP32 and broadcasts it to the web client.
+    The ESP32 should send data like: {'bpm': 85, 'hrv': 45}
+    """
+    print(f"Received vitals from hardware: {data}")
+
+    # Use your existing function to figure out the emotion
+    emotion = map_vitals_to_emotion(data.get('bpm', 0), data.get('hrv', 0))
+
+    # Prepare the final data to send to the webpage
+    payload = {
+        'bpm': data.get('bpm'),
+        'hrv': data.get('hrv'),
+        'detected_emotion': emotion
+    }
+
+    # Broadcast this payload to the vitals_player.html webpage
+    socketio.emit('vitals_from_server', payload, namespace='/hardware')
 
 if __name__ == "__main__":
     host = "127.0.0.1"
     port = 5000
     print(f"🚀 Your Flask app is running at: http://{host}:{port}/")
-    app.run(host=host, port=port, debug=True)
+    socketio.run(app, host=host, port=port, debug=True)

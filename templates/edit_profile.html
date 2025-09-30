@@ -150,7 +150,7 @@
             <h2>Edit Your Profile</h2>
         </div>
         
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <div class="form-container">
                 <div class="input-group">
                     <label for="username">Username</label>
@@ -171,6 +171,12 @@
                 </div>
                 
                 <div class="input-group">
+                    <label for="profile_pic">New Profile Picture</label>
+                    <i class="fas fa-camera"></i>
+                    <input type="file" id="profile_pic" name="profile_pic" accept="image/png, image/jpeg, image/jpg" style="padding: 12px 15px 12px 40px; border-radius: 8px;">
+                </div>
+
+                <div class="input-group">
                     <label for="language">Default Language</label>
                     <i class="fas fa-globe"></i>
                     <select id="language" name="language" required>
@@ -188,6 +194,32 @@
                 </div>
             </div>
         </form>
+
+        {% if user.profile_pic %}
+        <div style="text-align: center; padding: 0 25px 25px 25px;">
+            <p style="margin-bottom: 10px; font-weight: 500; color: #444;">Current Picture:</p>
+            <img src="{{ url_for('static', filename='profile_pics/' + user.profile_pic) }}" alt="Profile Picture" style="width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 2px solid #ddd;">
+            <form action="{{ url_for('delete_profile_pic') }}" method="POST">
+                <button type="submit" onclick="return confirm('Are you sure you want to delete your profile picture?');" style="width: auto; padding: 8px 20px; background: linear-gradient(to right, #E53935, #c62828); font-size: 14px;">
+                    <i class="fas fa-trash"></i> Delete Picture
+                </button>
+            </form>
+        </div>
+        {% endif %}
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="messages">
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+    </div>
+</body>
+</html>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             <div class="messages">
