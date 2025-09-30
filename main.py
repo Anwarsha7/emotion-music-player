@@ -148,12 +148,13 @@ class EmotionMusicPlayerApp:
 
 
         # --- FONTS AND GUI LAYOUT (CustomTkinter) ---
-        self.title_font = ctk.CTkFont(family="Helvetica", size=18, weight="bold")
-        self.label_font = ctk.CTkFont(family="Helvetica", size=12)
-        self.song_font = ctk.CTkFont(family="Helvetica", size=14, weight="bold", slant="italic")
-        self.status_font = ctk.CTkFont(family="Helvetica", size=10, slant="italic")
-        self.placeholder_font = ctk.CTkFont(family="Helvetica", size=20, weight="bold")
-        self.link_font = ctk.CTkFont(family="Helvetica", size=12, underline=True)
+        self.title_font = ctk.CTkFont(size=20, weight="bold")
+        self.label_font = ctk.CTkFont(size=13)
+        self.song_font = ctk.CTkFont(size=15, weight="bold", slant="italic")
+        self.status_font = ctk.CTkFont(size=11, slant="italic")
+        self.placeholder_font = ctk.CTkFont(size=22, weight="bold")
+        self.link_font = ctk.CTkFont(size=12, underline=True)
+
 
 
         # main containers
@@ -176,9 +177,9 @@ class EmotionMusicPlayerApp:
         self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
 
         self.controls_frame = ctk.CTkFrame(
-            self.root,
-            fg_color="#c28aff",
-            corner_radius=12,
+            master=self.root,
+            corner_radius=20,
+            fg_color=("#FFFFFF", "#0F1115"),
             width=300,
             height=560
         )
@@ -199,14 +200,16 @@ class EmotionMusicPlayerApp:
         self.local_mode_button = ctk.CTkButton(
             mode_frame, text="Local",
             command=lambda: self.set_music_mode("Local"),
-            width=80
+            width=80,
+            text_color="black"
         )
         self.local_mode_button.pack(side="left", padx=5)
 
         self.spotify_mode_button = ctk.CTkButton(
             mode_frame, text="Spotify",
             command=lambda: self.set_music_mode("Spotify"),
-            width=80
+            width=80,
+            text_color="black"
         )
         self.spotify_mode_button.pack(side="left", padx=5)
 
@@ -226,7 +229,8 @@ class EmotionMusicPlayerApp:
             btn = ctk.CTkButton(
                 lang_frame, text=lang.capitalize(),
                 command=lambda l=lang: self.set_language(l),
-                width=70
+                width=70,
+                text_color="black",
             )
             btn.pack(side="left", padx=2, pady=2)
             self.lang_buttons[lang] = btn
@@ -266,48 +270,63 @@ class EmotionMusicPlayerApp:
         self.play_icon = CTkImage(Image.open("play_icon.png"))
         self.pause_icon = CTkImage(Image.open("pause_icon.png"))
 
+         
+
         self.previous_button = ctk.CTkButton(
             self.buttons_frame,
-            text="Previous Song",
+            text="⏮ Previous",
             command=self.play_previous_song,
             width=180,
             fg_color="#4B9CD3",        # blue
             hover_color="#357ABD",     # darker blue on hover
-            text_color="white"
+            text_color="black",
+            corner_radius=12
         )
         self.previous_button.pack(pady=5)
 
+
+        
+
         self.play_pause_button = ctk.CTkButton(
             self.buttons_frame,
-            text="",
+            text="⏯",
             image=self.pause_icon,
             command=self.toggle_pause_play,
             width=180,
             fg_color="#28A745",        # green
-            hover_color="#1E7E34",     # darker green on hover
-           # text_color="white"
+            hover_color="#1E7E34",
+            text_color="black",
+            corner_radius=12
         )
         self.play_pause_button.pack(pady=5)
 
+
+        
+
         self.next_button = ctk.CTkButton(
             self.buttons_frame,
-            text="Next Song",
+            text="Next ⏭",
             command=self.play_next_song,
             width=180,
             fg_color="#FFC107",        # amber/yellow
             hover_color="#E0A800",     # darker amber on hover
-            text_color="black"
+            text_color="black",
+            corner_radius=12
         )
         self.next_button.pack(pady=5)
 
+ 
+
         self.switch_cam_button = ctk.CTkButton(
             self.controls_frame,
-            text="Switch Camera",
+            text="📷 Switch Camera",  # remove \u200B; font fix handles alignment
             command=self.switch_camera,
             width=180,
-            fg_color="#6F42C1",        # purple
-            hover_color="#5A32A3",     # darker purple
-            text_color="white"
+            fg_color="#6F42C1",
+            hover_color="#5A32A3",
+            text_color="black",
+            corner_radius=12,
+            font=("Segoe UI Symbol", 14)  # same style as other buttons
         )
         self.switch_cam_button.pack(pady=5)
 
@@ -556,9 +575,7 @@ class EmotionMusicPlayerApp:
                 "track_uri": track_uri,
                 "progress_ms": progress_ms
             }
-            # Note: A proper auth system would use tokens, but for this project,
-            # we can pass the user's email in the session cookie if needed.
-            # However, since the backend checks the Flask session, we might not need it.
+            
             requests.post(url, json=payload, timeout=5)
             print(f"Logged state for playlist {playlist_id}: track {track_uri}")
         except Exception as e:
@@ -1391,7 +1408,7 @@ class EmotionMusicPlayerApp:
     def update_voice_status(self, text, hold_ms=2500):
         try:
             # set the label text + color
-            self.voice_status_label.configure(text=text, text_color="black")
+            self.voice_status_label.configure(text=text, text_color="white")
 
             self._last_voice_seen_time = time.time()
 
@@ -1561,6 +1578,19 @@ class EmotionMusicPlayerApp:
         self.display_frame(frame)
 
     def on_closing(self):
+        try:
+            # --- NEW: Release the player lock on the server ---
+            print("Releasing player lock on the server...")
+            requests.post(
+                "http://127.0.0.1:5000/release_lock",
+                json={"email": self.user_email},
+                timeout=2  # Set a short timeout to not delay closing
+            )
+            print("Lock released.")
+        except Exception as e:
+            print(f"Could not release player lock: {e}")
+        # --- END OF NEW CODE ---
+
         self.is_running_monitor = False
         self.is_running = False
         time.sleep(0.2)

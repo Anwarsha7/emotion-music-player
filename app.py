@@ -19,6 +19,9 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 import uuid 
 import logging
+import cloudinary
+from cloudinary import uploader
+from cloudinary.utils import cloudinary_url
 
 # --- ADD THIS LOGGING CONFIGURATION ---
 logging.basicConfig(
@@ -31,6 +34,13 @@ logging.basicConfig(
 # Load environment variables
 # ----------------------
 load_dotenv()
+
+cloudinary.config( 
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
+    api_key = os.getenv("CLOUDINARY_API_KEY"), 
+    api_secret = os.getenv("CLOUDINARY_API_SECRET"),
+    secure = True
+)
 
 MONGO_URI = os.getenv("MONGO_URI")
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
@@ -274,8 +284,12 @@ def dashboard():
     if access_token and expires_at and time.time() < expires_at:
         spotify_linked = True
 
-    # --- NEW: Get the profile picture filename ---
-    user_profile_pic = user_data.get("profile_pic", None)
+    # --- UPDATED: Generate Cloudinary URL if a public_id exists ---
+    user_profile_pic_url = None
+    public_id = user_data.get("profile_pic_public_id")
+    if public_id:
+        # This generates a 100x100 cropped URL
+        user_profile_pic_url, _ = cloudinary_url(public_id, width=100, height=100, crop="fill", gravity="face")
 
     return render_template(
         "dashboard.html",
@@ -284,7 +298,7 @@ def dashboard():
         history=history,
         stats=stats,
         user_spotify_linked=spotify_linked,
-        user_profile_pic=user_profile_pic  # Pass filename to the template
+        user_profile_pic_url=user_profile_pic_url  # Pass the new URL variable to the template
     )
 
 # ----- Vitals Player Route -----
@@ -319,25 +333,18 @@ def edit_profile():
     user_data = users_col.find_one({"email": user_email})
 
     if request.method == "POST":
-        # --- PROFILE PICTURE LOGIC ---
+        # --- CLOUDINARY PROFILE PICTURE LOGIC ---
         if 'profile_pic' in request.files:
             file = request.files['profile_pic']
             if file and file.filename != '' and allowed_file(file.filename):
-                # Create a unique filename to prevent conflicts
-                filename_ext = file.filename.rsplit('.', 1)[1].lower()
-                unique_filename = f"{uuid.uuid4()}.{filename_ext}"
-
-                # Delete old picture if it exists
-                old_pic = user_data.get("profile_pic")
-                if old_pic:
-                    try:
-                        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], old_pic))
-                    except OSError as e:
-                        print(f"Error deleting old profile picture: {e}")
-
-                # Save the new file and update the database
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
-                users_col.update_one({"email": user_email}, {"$set": {"profile_pic": unique_filename}})
+                old_pic_public_id = user_data.get("profile_pic_public_id")
+                if old_pic_public_id:
+                    uploader.destroy(old_pic_public_id)
+                upload_result = uploader.upload(file, folder="profile_pics", public_id=str(uuid.uuid4()))
+                users_col.update_one(
+                    {"email": user_email}, 
+                    {"$set": {"profile_pic_public_id": upload_result['public_id']}}
+                )
                 flash("Profile picture updated!", "success")
 
         # --- EXISTING PROFILE UPDATE LOGIC ---
@@ -348,27 +355,33 @@ def edit_profile():
 
         if new_email != user_email and users_col.find_one({"email": new_email}):
             flash("That email address is already in use.", "danger")
-            return render_template("edit_profile.html", user=user_data)
+            # We need to regenerate the URL for the template if there's an error
+            user_profile_pic_url = None
+            public_id = user_data.get("profile_pic_public_id")
+            if public_id:
+                user_profile_pic_url, _ = cloudinary_url(public_id, width=90, height=90, crop="fill", gravity="face")
+            return render_template("edit_profile.html", user=user_data, user_profile_pic_url=user_profile_pic_url)
 
-        update_data = {
-            "username": new_username,
-            "email": new_email,
-            "default_language": new_language
-        }
+        update_data = {"username": new_username, "email": new_email, "default_language": new_language}
         if new_password:
             hashed_pw = bcrypt.generate_password_hash(new_password).decode("utf-8")
             update_data["password"] = hashed_pw
-
         users_col.update_one({"email": user_email}, {"$set": update_data})
 
         session["user"]["username"] = new_username
         session["user"]["email"] = new_email
         session.modified = True
-
         flash("Profile details updated successfully!", "success")
         return redirect(url_for("dashboard"))
 
-    return render_template("edit_profile.html", user=user_data)
+    # --- THIS PART IS FOR WHEN THE PAGE IS FIRST LOADED (GET request) ---
+    # It generates the URL to display the current picture
+    user_profile_pic_url = None
+    public_id = user_data.get("profile_pic_public_id")
+    if public_id:
+        user_profile_pic_url, _ = cloudinary_url(public_id, width=90, height=90, crop="fill", gravity="face")
+        
+    return render_template("edit_profile.html", user=user_data, user_profile_pic_url=user_profile_pic_url)
 
 # Add this entire function to app.py
 
@@ -382,23 +395,16 @@ def delete_profile_pic():
     user_email = session["user"]["email"]
     user_data = users_col.find_one({"email": user_email})
     
-    profile_pic_filename = user_data.get("profile_pic")
+    public_id = user_data.get("profile_pic_public_id")
     
-    if profile_pic_filename:
-        # 1. Delete the file from the server
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], profile_pic_filename)
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except OSError as e:
-            print(f"Error deleting profile picture file: {e}")
-            flash("An error occurred while deleting the picture.", "danger")
-            return redirect(url_for('edit_profile'))
+    if public_id:
+        # 1. Delete the image from Cloudinary
+        uploader.destroy(public_id)
             
         # 2. Remove the field from the database
         users_col.update_one(
             {"email": user_email},
-            {"$unset": {"profile_pic": ""}}
+            {"$unset": {"profile_pic_public_id": ""}}
         )
         flash("Profile picture has been deleted.", "success")
         
@@ -504,7 +510,22 @@ def launch_app():
 
 # --- NEW API ROUTES FOR VITALS PLAYER LOCAL MUSIC RESUME ---
 
-# --- NEW API ROUTES FOR VITALS PLAYER LOCAL MUSIC RESUME ---
+@app.route("/release_lock", methods=["POST"])
+def release_lock():
+    data = request.get_json() or {}
+    email = data.get("email")
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    result = users_col.update_one(
+        {"email": email, "player_lock.status": "desktop"},
+        {"$set": {"player_lock": {"status": "none", "timestamp": 0}}}
+    )
+    
+    if result.modified_count > 0:
+        logging.info(f"Desktop player lock released for {email}")
+        
+    return jsonify({"status": "success"})
 
 @app.route('/local-music/get-resume-state', methods=['GET'])
 def get_local_resume_state():

@@ -181,8 +181,8 @@
     </nav>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            {% if user_profile_pic %}
-                <img src="{{ url_for('static', filename='profile_pics/' + user_profile_pic) }}" alt="Profile Picture" class="user-avatar-img">
+            {% if user_profile_pic_url %}
+                <img src="{{ user_profile_pic_url }}" alt="Profile Picture" class="user-avatar-img">
             {% else %}
                 <div class="user-avatar">{{ username[0].upper() }}</div>
             {% endif %}

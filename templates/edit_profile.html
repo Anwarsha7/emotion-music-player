@@ -195,10 +195,12 @@
             </div>
         </form>
 
-        {% if user.profile_pic %}
+        {% if user_profile_pic_url %}
         <div style="text-align: center; padding: 0 25px 25px 25px;">
             <p style="margin-bottom: 10px; font-weight: 500; color: #444;">Current Picture:</p>
-            <img src="{{ url_for('static', filename='profile_pics/' + user.profile_pic) }}" alt="Profile Picture" style="width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 2px solid #ddd;">
+            
+            <img src="{{ user_profile_pic_url }}" alt="Profile Picture" style="width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 2px solid #ddd;">
+            
             <form action="{{ url_for('delete_profile_pic') }}" method="POST">
                 <button type="submit" onclick="return confirm('Are you sure you want to delete your profile picture?');" style="width: auto; padding: 8px 20px; background: linear-gradient(to right, #E53935, #c62828); font-size: 14px;">
                     <i class="fas fa-trash"></i> Delete Picture
