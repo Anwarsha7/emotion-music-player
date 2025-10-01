@@ -1,73 +1,87 @@
+<div align="center">
+
 # 🎵 AuraTune - Music That Feels What You Feel
+
+**AuraTune is an intelligent music player that uses AI-driven emotion detection and biometric signals to create personalized playlists in real time. Developed as a Final Year B.Tech Project, AuraTune represents the intersection of artificial intelligence, human emotions, and an immersive user experience.**
+
+</div>
+
+<div align="center">
 
 [![MIT License](https://img.shields.io/github/license/Anwarsha7/emotion-music-player?style=for-the-badge)](https://github.com/Anwarsha7/emotion-music-player/blob/main/LICENSE)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Anwarsha7/emotion-music-player?style=for-the-badge)
 ![GitHub repo size](https://img.shields.io/github/repo-size/Anwarsha7/emotion-music-player?style=for-the-badge)
 
-![Python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge&logo=python)
-![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow)
-![Spotify](https://img.shields.io/badge/Spotify-1DB954?style=for-the-badge&logo=spotify)
-![MongoDB](https://img.shields.io/badge/MongoDB-4DB33D?style=for-the-badge&logo=mongodb)
-![CustomTkinter](https://img.shields.io/badge/CustomTkinter-008080?style=for-the-badge)
+</div>
 
 ---
-
-AuraTune is an intelligent music player that uses **AI-driven emotion detection** and **biometric signals** to create personalized playlists in real time.  
-Developed as my **Final Year B.Tech Project**, AuraTune represents the intersection of **artificial intelligence, human emotions, and immersive user experience**.
 
 ![AuraTune Desktop Player](screenshots/camera-player.png)
 
- ## 📸 Screenshots
+## ✨ Key Features
 
-![Landing Page](screenshots/landing.png)  
-*The official landing page for AuraTune.*
+AuraTune offers a unique and interactive music experience through three powerful modes:
 
-![User Dashboard](screenshots/dashboard.png)  
-*The personalized user dashboard after logging in.*
+### 🎭 **Emotion Detection Mode**
+-   **Real-time Facial Analysis**: Utilizes the **DeepFace** library to analyze facial expressions from a webcam and detect emotions like *Happy*, *Sad*, *Angry*, and *Neutral*.
+-   **Dynamic Playlist Curation**: Automatically generates and plays music that matches your current emotional state.
 
-![Vitals Player](screenshots/vitals-player.png)  
-*The web-based player that uses biometric data from hardware.*
+### ❤️ **Biometric Sensing Mode**
+-   **Real-time Vitals Monitoring**: Connects to hardware sensors via a web-based player using **Flask-SocketIO**.
+-   **Physiology-Based Playlists**: Uses biometric data such as **Heart Rate Variability (HRV)** and **BPM** to curate playlists that align with your physiological state (e.g., calm music for a low heart rate).
+
+### 🎶 **Flexible Music Playback**
+-   **Local Playback**: Play mood-curated playlists directly from your local music library.
+-   **Spotify Integration**: Seamlessly connect your Spotify account (both Free & Premium) to generate and play dynamic, mood-based playlists.
+
+### **Additional Features**
+-   **🗂️ Personalized Dashboard**: View your emotion statistics and playback history.
+-   **🎙️ Voice Commands**: Control the desktop player hands-free.
+-   **🔒 Secure Authentication**: Robust user login and profile management.
 
 ---
 
-## ✨ Key Features
+## 📸 Screenshots
 
-AuraTune has **three powerful modes of interaction**:
+<details>
+<summary>Click to view screenshots</summary>
 
-### 🎭 Emotion Detection Mode
-- Real-time facial emotion analysis via **DeepFace** (Happy, Sad, Angry, Neutral).
-- Webcam-powered detection for dynamic playlist curation.
+| Landing Page | User Dashboard | Vitals Player |
+| :---: | :---: | :---: |
+| ![Landing Page](screenshots/landing.png) | ![User Dashboard](screenshots/dashboard.png) | ![Vitals Player](screenshots/vitals-player.png) |
+| *The official landing page for AuraTune.* | *The personalized user dashboard.* | *The web-based player using biometric data.* |
 
-### ❤️ Biometric Sensing Mode
-- Web-based vitals player connected via **Flask-SocketIO**.  
-- Uses **HRV (Heart Rate Variability)** & **BPM** from hardware sensors.  
-- Generates playlists that match physiological states.
-
-### 🎶 Music Playback Modes
-- **Local Mode:** Play curated playlists from local files.  
-- **Spotify Mode:** Integrates with Spotify (Free & Premium accounts).  
-- Dynamic mood-based playlist generation with seamless playback.  
-
-Additional features:
-- 🗂 Personalized dashboard with emotion statistics & history  
-- 🎙 Voice commands for desktop player control  
-- 🔒 Secure authentication & profile management  
+</details>
 
 ---
 
 ## 🏗️ System Architecture
 
-```mermaid
-flowchart TD
-    A[Camera Input] --> B[DeepFace Model]
-    B --> C[Emotion Detected]
-    C --> D[Playlist Generator]
-    D --> E[Spotify API / Local Files]
+AuraTune's architecture is designed to process user input from two primary sources—visual (camera) and physiological (hardware sensors)—to generate a curated music playlist.
 
-    F[Hardware Vitals] --> G[Flask-SocketIO]
-    G --> H[Biometric Data Processing]
+```mermaid
+graph TD
+    subgraph Input Sources
+        A[Camera Input]
+        F[Hardware Vitals]
+    end
+
+    subgraph Processing Engine
+        B[DeepFace Model]
+        G[Flask-SocketIO Server]
+        H[Biometric Data Processing]
+        D[Playlist Generator]
+    end
+
+    subgraph Output
+        E[Spotify API / Local Files]
+    end
+
+    A --> B --> C[Emotion Detected]
+    F --> G --> H
+    C --> D
     H --> D
+    D --> E
 
 
 ## 🛠️ Tech Stack
