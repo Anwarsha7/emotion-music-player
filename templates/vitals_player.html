@@ -251,7 +251,7 @@
     </style>
 </head>
 
-<body data-spotify-connected="{{ is_spotify_connected }}">
+<body data-spotify-connected="{{ is_spotify_connected }}" data-spotify-premium="{{ is_spotify_premium }}">
     <div class="container">
         <div class="panel">
             <h2 class="panel-title">Vitals Monitor</h2>
@@ -332,6 +332,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // --- CORE STATE & UI ---
             const isSpotifyConnected = document.body.dataset.spotifyConnected === 'True';
+            const isSpotifyPremium = document.body.dataset.spotifyPremium === 'True'; // <-- ADD THIS
 
             const state = {
                 inputMode: null,
@@ -341,15 +342,15 @@
                 targetEmotionForPlayback: null,
                 isPlaying: false,
                 isSpotifyConnected: isSpotifyConnected,
-                isSpotifyPremium: false,
+                isSpotifyPremium: isSpotifyPremium, // <-- USE THE CORRECT VALUE
                 activeSpotifyDeviceId: null,
                 localPlaylist: [],
                 currentTrackIndex: 0,
                 lastEmotionForMusic: null,
                 nowPlayingInterval: null,
                 lastLoggedTrack: null,
-                inquiryActive: false, // <-- ADD THIS LINE
-                inquiryTimeoutId: null, 
+                inquiryActive: false,
+                inquiryTimeoutId: null,
             };
 
             const ui = {
@@ -846,9 +847,9 @@
                         const data = await response.json();
                         const activeDevice = data.devices?.find(d => d.is_active);
                         if (activeDevice) {
-                            state.isSpotifyPremium = true;
+                            // state.isSpotifyPremium = true; // <-- THIS INCORRECT LINE IS REMOVED
                             state.activeSpotifyDeviceId = activeDevice.id;
-                            console.log('Premium Spotify experience enabled. Active device:', activeDevice.name);
+                            console.log('Active Spotify device found:', activeDevice.name);
                         } else {
                             console.log('Spotify is linked, but no active device found. Playback will be link-only.');
                         }

@@ -5,3 +5,9 @@ __pycache__/
 *.pyo
 *.log
 .DS_Store
+.vscode/
+.idea/
+build/
+dist/
+*.spec
+.cache

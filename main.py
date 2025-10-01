@@ -20,8 +20,8 @@ from PIL import Image, ImageTk
 from customtkinter import CTkImage
 
 
-# DeepFace + audio + spotify + voice
 from deepface import DeepFace
+BASE_API_URL = "http://127.0.0.1:5000"
 import pygame
 import speech_recognition as sr
 import spotipy
@@ -31,7 +31,6 @@ ctk.set_appearance_mode("dark")              # "light", "dark", or "system"
 ctk.set_default_color_theme("dark-blue")     # built-in theme
 
 
-# pycaw (Windows-only) for system volume
 try:
     from ctypes import cast, POINTER
     from comtypes import CLSCTX_ALL
@@ -43,10 +42,8 @@ except Exception:
 # --- MONGO DB ADDED
 from pymongo import MongoClient
 
-# load environment
 load_dotenv()  # loads environment variables from .env
 
-# --- MONGO DB ADDED: read URI and initialize client (safe if missing)
 MONGO_URI = os.getenv("MONGO_URI")
 history_col = None
 try:
@@ -104,15 +101,12 @@ class EmotionMusicPlayerApp:
         self.root.geometry("1000x600")
         self.root.configure(bg="#7700ee")
 
-        # --- NEW: User details received from app.py ---
         self.user_email = user_email
         self.default_language = default_language
         print(f"App started for user: {self.user_email} with default language: {self.default_language}")
-        
-        # Set the initial language based on user's default
+
         CONFIG["current_language"] = self.default_language
 
-        # State & runtime variables
         self.app_state = AppState.IDLE
         self.is_running = True
         self.camera_index = 1
@@ -133,7 +127,6 @@ class EmotionMusicPlayerApp:
         self._current_filename = None
         self.full_song_list = []
         self.current_index = 0
-        # --- NEW: Spotify Premium State ---
         self.is_spotify_premium = False
         self.spotify_device_id = None
         self.spotify_monitor_thread = None
@@ -266,9 +259,13 @@ class EmotionMusicPlayerApp:
         # bottom buttons
         self.buttons_frame = ctk.CTkFrame(self.controls_frame, fg_color="transparent")
         self.buttons_frame.pack(pady=10, fill="x", side="bottom")
-        # Load images for the play/pause button
-        self.play_icon = CTkImage(Image.open("play_icon.png"))
-        self.pause_icon = CTkImage(Image.open("pause_icon.png"))
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        play_icon_path = os.path.join(BASE_DIR, "static", "assets", "play_icon.png")
+        pause_icon_path = os.path.join(BASE_DIR, "static", "assets", "pause_icon.png")
+
+        self.play_icon = CTkImage(Image.open(play_icon_path))
+        self.pause_icon = CTkImage(Image.open(pause_icon_path))
 
          
 
@@ -354,7 +351,6 @@ class EmotionMusicPlayerApp:
     # ---------------------------
     # --- MODIFIED: Database Methods Integrated into the Class ---
     # ---------------------------
-    # --- NEW METHODS FOR PREMIUM SPOTIFY HANDLING ---
     def _display_free_user_link(self, playlist):
         """Configures the UI for a non-premium user."""
         self.webcam_label.place_forget()
@@ -379,8 +375,7 @@ class EmotionMusicPlayerApp:
 
         playlist_id = playlist['id']
         playlist_uri = playlist['uri']
-        
-        # Fetch resume state from our backend
+
         resume_state = self._get_spotify_state(playlist_id)
         offset = None
         position_ms = 0
@@ -445,7 +440,6 @@ class EmotionMusicPlayerApp:
 
     def _spotify_playback_monitor(self, playlist_id):
         """Periodically checks Spotify's state to update UI, log history, and re-trigger detection when playback ends."""
-        # --- NEW: Flag to track if music was playing in the last check ---
         was_playing = True
 
         while self.is_running_monitor and self.is_running:
@@ -474,13 +468,10 @@ class EmotionMusicPlayerApp:
                         )
                         self.last_logged_track_uri = track_uri
                 else:
-                    # --- NEW LOGIC: This block runs when music is NOT playing ---
-                    # Check if it was playing just before this check
                     if was_playing:
                         was_playing = False # Set flag to false so this only runs once
                         self.is_spotify_playing = False
                         print("Spotify playback ended, starting new detection.")
-                        # Use root.after to safely call a main thread function from this background thread
                         self.root.after(0, self.start_detection)
 
                     self.root.after(0, lambda: self.play_pause_button.configure(image=self.play_icon))
@@ -556,7 +547,7 @@ class EmotionMusicPlayerApp:
             return None
         try:
             # Assuming your Flask app runs on the default port 5000
-            url = f"http://127.0.0.1:5000/get_spotify_state/{playlist_id}"
+            url = f"{BASE_API_URL}/get_spotify_state/{playlist_id}"
             response = requests.get(url, cookies={'session': self.user_email}) # Simple auth
             if response.status_code == 200:
                 return response.json()
@@ -569,7 +560,7 @@ class EmotionMusicPlayerApp:
         if not self.is_spotify_premium:
             return
         try:
-            url = "http://127.0.0.1:5000/log_spotify_state"
+            url = f"{BASE_API_URL}/log_spotify_state"
             payload = {
                 "playlist_id": playlist_id,
                 "track_uri": track_uri,
@@ -579,8 +570,7 @@ class EmotionMusicPlayerApp:
             requests.post(url, json=payload, timeout=5)
             print(f"Logged state for playlist {playlist_id}: track {track_uri}")
         except Exception as e:
-            print(f"Error logging Spotify state: {e}")
-    # --- END OF API HELPERS ---        
+            print(f"Error logging Spotify state: {e}")     
 
     # ---------------------------
     # Initialization helpers
@@ -622,7 +612,6 @@ class EmotionMusicPlayerApp:
 
     def speak_blocking(self, text):
         """Queues text to be spoken by the OS's native TTS in a background thread."""
-        # Run the native speech in a thread to avoid blocking the GUI
         threading.Thread(target=self.speak_native, args=(text,), daemon=True).start()
 
         
@@ -773,31 +762,23 @@ class EmotionMusicPlayerApp:
         except queue.Empty:
             pass
 
-    # REPLACE the old get_confident_emotion function with this one
     def get_confident_emotion(self):
         """Return most frequent detection, with special sensitivity for 'sad'."""
         if not self.emotion_detections:
             return "neutral"
 
-        # Count how many times each emotion appeared
         emotion_counts = Counter(self.emotion_detections)
-        # Find the most common one and its count
         most_common, count = emotion_counts.most_common(1)[0]
-        
-        # Calculate what percentage of detections the most common emotion makes up
+
         total_detections = len(self.emotion_detections)
         confidence_percentage = count / total_detections
-        
-        # --- NEW LOGIC ---
-        # If 'sad' is the top candidate, accept it with a lower confidence (e.g., 25%)
+
         if most_common == 'sad' and confidence_percentage >= 0.25:
             print(f"Confident emotion found (sensitive rule): {most_common} ({confidence_percentage:.0%})")
             return most_common
-        # For all other emotions, use the standard, stricter threshold (40%)
         elif confidence_percentage >= 0.4:
             print(f"Confident emotion found (standard rule): {most_common} ({confidence_percentage:.0%})")
             return most_common
-        # Otherwise, if no emotion is strong enough, default to neutral
         else:
             print(f"No confident emotion found (Top was {most_common} at {confidence_percentage:.0%}). Defaulting to neutral.")
             return "neutral"
@@ -812,14 +793,13 @@ class EmotionMusicPlayerApp:
         self.last_locked_emotion = None
         if self.app_state in [AppState.CAMERA_ERROR, AppState.AUTH_ERROR]:
             return
-        # Cancel any previous inquiry when starting a new detection
         self.inquiry_pending = None
         self.inquiry_start_time = None
         self.detection_paused = False
         self.last_locked_emotion = None
 
         self.placeholder_label.place_forget()
-        self.webcam_label.place(relx=0, rely=0, relwidth=1, relheight=1) # <-- FIX 1
+        self.webcam_label.place(relx=0, rely=0, relwidth=1, relheight=1) 
         self.progress_bar.pack(pady=10, padx=20, fill="x") # Show the bar
         self.current_playlist_url = None
         self.playlist_link_label.configure(text="")
@@ -869,7 +849,6 @@ class EmotionMusicPlayerApp:
 
     def lock_in_emotion(self, emotion):
 
-        # Prevent duplicate locks for the same emotion until detection restarts
         if getattr(self, "last_locked_emotion", None) == emotion:
             print(f"Already locked emotion '{emotion}' — skipping duplicate lock.")
             return
@@ -881,12 +860,10 @@ class EmotionMusicPlayerApp:
         self.progress_bar.set(0)  # Reset the bar
         self.progress_bar.pack_forget()  # Hide the bar again
 
-        # Save the locked emotion (candidate). We'll act after user choice.
         self.target_emotion_for_playback = emotion
         print(f"Emotion locked in: {emotion}. Finding matching music.")
         self.target_emotion_label.configure(text=f"Playing For: {self.target_emotion_for_playback.capitalize()}")
 
-        # For complex emotions, ask the user (non-blocking)
         if emotion in ["angry", "sad"]:
             # set inquiry state
             self.inquiry_pending = emotion
@@ -904,18 +881,14 @@ class EmotionMusicPlayerApp:
             except Exception:
                 pass
 
-            self.webcam_label.place_forget() # <-- FIX 2
-            # show instruction on the placeholder area
+            self.webcam_label.place_forget()  
             self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
             self.placeholder_label.configure(text=f"Detected '{emotion}'. Say 'same mood' to vent, or 'change mood' to calm down.")
 
-            # TTS ask (non-blocking)
             self.speak_blocking(f"Feeling {emotion}. Say same mood to vent, or change mood to calm down.")
 
-            # DO NOT play music yet — wait for voice thread to handle user's reply
             return
 
-        # otherwise behave as before
         if CONFIG["music_mode"] == "Spotify":
             self.suggest_spotify_playlist()
         else:
@@ -935,8 +908,6 @@ class EmotionMusicPlayerApp:
     def authenticate_spotify(self):
         """Authenticate Spotify using ONLY the token provided from app.py."""
         try:
-            # --- KEY CHANGE: Check for a non-empty and valid token FIRST ---
-            # If the token is an empty string or expired, don't try to connect.
             if self.spotify_access_token and self.is_spotify_token_valid():
                 self.sp = spotipy.Spotify(auth=self.spotify_access_token)
                 self.sp.current_user()  # This API call is now safe to make.
@@ -945,15 +916,12 @@ class EmotionMusicPlayerApp:
                 self.app_state = AppState.IDLE
                 self.placeholder_label.configure(text="Spotify connected successfully!")
             else:
-                # --- This block now runs immediately if not linked ---
-                # It doesn't attempt any network calls, preventing the freeze.
                 print("Spotify token is missing or invalid. Setting AUTH_ERROR.")
                 self.placeholder_label.configure(text="Spotify not connected.\nPlease link your account on the web dashboard.")
                 self.app_state = AppState.AUTH_ERROR
                 self.sp = None
 
         except Exception as e:
-            # This block will now only catch actual API errors from valid-looking tokens.
             print(f"Spotify auth error (API call failed): {e}")
             self.placeholder_label.configure(text="Spotify Auth Error.\nPlease re-link on the dashboard.")
             self.app_state = AppState.AUTH_ERROR
@@ -969,6 +937,8 @@ class EmotionMusicPlayerApp:
             return
 
         self.app_state = AppState.SUGGESTED
+        self.song_label.configure(text="Searching for the perfect playlist...")
+        self.root.update_idletasks() # Force the UI to update immediately
         self.timer_label.configure(text="")
         
         LANGUAGE_SYNONYMS = {
@@ -1052,33 +1022,26 @@ class EmotionMusicPlayerApp:
         """Pick MP3s from static/music/<language>/<emotion> and play sequentially."""
         self.app_state = AppState.PLAYING
         self.timer_label.configure(text="")
-        self.webcam_label.place_forget() # <-- FIX 2
+        self.webcam_label.place_forget() 
         self.placeholder_label.configure(text="Playing Music...\nSay 'camera on' to detect again.")
-        # In play_local_music
         self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
-
         emotion_folder = os.path.join("static", "music", CONFIG["current_language"], self.target_emotion_for_playback)
-        if not os.path.isdir(emotion_folder):
-            if CONFIG["current_language"] != "english":
-                fallback = os.path.join("static", "music", "english", self.target_emotion_for_playback)
-                if os.path.isdir(fallback):
-                    self.song_label.configure(text=f"No songs in {CONFIG['current_language']}. Falling back to English.")
-                    emotion_folder = fallback
-                else:
-                    self.song_label.configure(text=f"No '{emotion_folder}' folder.")
-                    return
-            else:
-                self.song_label.configure(text=f"No '{emotion_folder}' folder.")
-                return
-        song_files = [f for f in os.listdir(emotion_folder) if f.lower().endswith('.mp3')]
+        song_files = []
+        if os.path.isdir(emotion_folder):
+            song_files = [f for f in os.listdir(emotion_folder) if f.lower().endswith('.mp3')]
+        if not song_files and CONFIG["current_language"] != "english":
+            self.song_label.configure(text=f"No songs in {CONFIG['current_language']}. Falling back to English.")
+            emotion_folder = os.path.join("static", "music", "english", self.target_emotion_for_playback)
+            if os.path.isdir(emotion_folder):
+                song_files = [f for f in os.listdir(emotion_folder) if f.lower().endswith('.mp3')]
+
         if not song_files:
-            self.song_label.configure(text=f"No songs in folder.")
+            self.song_label.configure(text=f"No songs found for this mood.")
             return
 
         song_files.sort()
         self.full_song_list = song_files
         try:
-            # --- MODIFIED: Use the class method for getting resume index ---
             last_index = self.get_last_song_index(CONFIG["current_language"], self.target_emotion_for_playback)
             last_index = int(last_index) if isinstance(last_index, (int, float)) else 0
             if last_index < 0 or last_index >= len(self.full_song_list):
@@ -1105,7 +1068,7 @@ class EmotionMusicPlayerApp:
             self._current_filename = song_name
             self.song_label.configure(text=os.path.splitext(song_name)[0])
             self.is_paused = False
-            self.play_pause_button.configure(text="Pause")
+            self.play_pause_button.configure(image=self.pause_icon, text="Pause")
             self.current_index = index
             
             # --- MODIFIED: Update resume point AND save to history log ---
@@ -1162,28 +1125,36 @@ class EmotionMusicPlayerApp:
                 print(f"Error playing previous: {e}")
         else:
             print("No previous song in history or not in playing state.")
+ 
 
     def toggle_pause_play(self):
         """Pause/unpause for both Local and Spotify playback."""
         if CONFIG["music_mode"] == "Spotify" and self.is_spotify_premium:
             if self.sp and self.spotify_device_id:
-                if self.is_spotify_playing:
-                    self.sp.pause_playback(device_id=self.spotify_device_id)
-                else:
-                    self.sp.start_playback(device_id=self.spotify_device_id)
-                self.is_spotify_playing = not self.is_spotify_playing
+                try:
+                    if self.is_spotify_playing:
+                        self.sp.pause_playback(device_id=self.spotify_device_id)
+                        self.is_spotify_playing = False
+                        self.play_pause_button.configure(image=self.play_icon, text="Play")
+                    else:
+                        self.sp.start_playback(device_id=self.spotify_device_id)
+                        self.is_spotify_playing = True
+                        self.play_pause_button.configure(image=self.pause_icon, text="Pause")
+                except Exception as e:
+                    print(f"Spotify toggle pause/play error: {e}")
+
         elif CONFIG["music_mode"] == "Local":
             if self.is_paused:
                 try:
                     pygame.mixer.music.unpause()
                     self.is_paused = False
-                    self.play_pause_button.configure(image=self.pause_icon)
+                    self.play_pause_button.configure(image=self.pause_icon, text="Pause")
                 except Exception: pass
             else:
                 try:
                     pygame.mixer.music.pause()
                     self.is_paused = True
-                    self.play_pause_button.configure(image=self.play_icon)
+                    self.play_pause_button.configure(image=self.play_icon, text="Play")
                 except Exception: pass
 
     def check_local_music_end(self):
@@ -1242,20 +1213,14 @@ class EmotionMusicPlayerApp:
         ]
 
         r = sr.Recognizer()
-        # Let the recognizer adapt dynamically but start from a reasonable baseline
         r.dynamic_energy_threshold = True
-        # If you find it keeps triggering on noise, increase this value (e.g., 400)
         r.energy_threshold = 300
-        # How long of a pause between words to consider phrase finished
         r.pause_threshold = 0.6
 
         mic = None
         try:
-            # If you later choose a specific device index, replace this with:
-            # mic = sr.Microphone(device_index=YOUR_INDEX)
             mic = sr.Microphone()
             with mic as source:
-                # Calibrate for ambient noise (longer duration helps noisy rooms)
                 r.adjust_for_ambient_noise(source, duration=2)
             self.root.after(0, lambda: self.voice_status_label.configure(text="Voice Command: Ready"))
         except Exception:
@@ -1269,17 +1234,13 @@ class EmotionMusicPlayerApp:
                     self.root.after(0, lambda: self.voice_status_label.configure(text="Voice Command: Listening..."))
                     audio = r.listen(source, timeout=3, phrase_time_limit=6)
 
-                # Try to convert to text
                 try:
                     command = r.recognize_google(audio).lower()
                     print(f"Voice command heard: '{command}'")
-                    # Show the recognized phrase in the GUI for a short time
                     self.root.after(0, lambda cmd=command: self.update_voice_status(f"Heard: '{cmd}'", hold_ms=2500))
-                    # pause the voice loop briefly so "Listening" doesn't immediately overwrite the shown text
                     time.sleep(2.0)
 
                 except sr.UnknownValueError:
-                    # Recognizer couldn't understand
                     self.root.after(0, lambda: self.voice_status_label.configure(text="Voice Command: Didn't catch that"))
                     continue
                 except sr.RequestError as e:
@@ -1287,7 +1248,6 @@ class EmotionMusicPlayerApp:
                     self.root.after(0, lambda: self.voice_status_label.configure(text="Voice Command: API Error"))
                     continue
 
-                # Language change handling
                 language_changed = False
                 for lang in CONFIG["supported_languages"]:
                     if lang in command:
@@ -1366,33 +1326,26 @@ class EmotionMusicPlayerApp:
                     current_song = self.song_label.cget("text")
                    # self.speak_blocking(f"The current song is {current_song}")
 
-                # Local music controls (use speak_blocking everywhere)
                 if CONFIG["music_mode"] == "Local":
                     if best_match in ["pause", "pause music", "stop", "stop music"]:
                         self.root.after(0, self.toggle_pause_play)
-                       # self.speak_blocking("Pausing music")
 
                     elif best_match in ["play", "resume", "start music"]:
                         self.root.after(0, self.toggle_pause_play)
-                        #self.speak_blocking("Playing")
 
                     elif best_match in ["next song", "next", "skip"]:
                         self.root.after(0, self.play_next_song)
-                       # self.speak_blocking("Next song")
 
                     elif best_match in ["previous song", "previous", "go back"]:
                         self.root.after(0, self.play_previous_song)
-                      #  self.speak_blocking("Previous song")
 
             except (sr.UnknownValueError, sr.WaitTimeoutError):
-                # ignore these quietly
                 pass
             except Exception as e:
                 print(f"Voice loop error: {e}")
             finally:
                             
                 if self.is_running:
-                    # Only set to Ready if we haven't just shown a "Heard" message very recently.
                     if time.time() - getattr(self, "_last_voice_seen_time", 0) > 1.0:
                         self.root.after(0, lambda: self.voice_status_label.configure(text="Voice Command: Ready"))
 
@@ -1407,7 +1360,6 @@ class EmotionMusicPlayerApp:
 
     def update_voice_status(self, text, hold_ms=2500):
         try:
-            # set the label text + color
             self.voice_status_label.configure(text=text, text_color="white")
 
             self._last_voice_seen_time = time.time()
@@ -1439,7 +1391,6 @@ class EmotionMusicPlayerApp:
     # In main.py
     def set_music_mode(self, mode):
         """Switch between Local and Spotify modes."""
-        # --- NEW: Stop spotify monitor when switching modes ---
         if CONFIG["music_mode"] == "Spotify":
             self.is_running_monitor = False
             if self.sp and self.spotify_device_id:
@@ -1450,7 +1401,6 @@ class EmotionMusicPlayerApp:
         # ----------------------------------------------------
         is_first_selection = self.app_state == AppState.IDLE
 
-        # Stop local music if switching from Local to Spotify
         if CONFIG["music_mode"] == "Local" and mode != "Local":
             try:
                 if pygame.mixer.get_init():
@@ -1460,14 +1410,9 @@ class EmotionMusicPlayerApp:
             except Exception as e:
                 print(f"Error stopping local music on mode switch: {e}")
 
-        # --- THIS IS THE FIX ---
-        # If the app is in an auth error state and we switch back to Local,
-        # we must reset the state to IDLE so that detection can begin again.
         if self.app_state == AppState.AUTH_ERROR and mode == "Local":
             self.app_state = AppState.IDLE
-        # --- END OF FIX ---
 
-        # If mode is unchanged and not first selection, just start detection
         if CONFIG["music_mode"] == mode and not is_first_selection:
             self.start_detection()
             return
@@ -1478,7 +1423,6 @@ class EmotionMusicPlayerApp:
         self.update_mode_button_visuals()
 
         if mode == "Spotify":
-            # Check if Spotify environment variables exist
             missing = [k for k in ("SPOTIPY_CLIENT_ID", "SPOTIPY_CLIENT_SECRET", "SPOTIPY_REDIRECT_URI") if not os.getenv(k)]
             if missing:
                 self.placeholder_label.configure(text=f"Spotify env missing: {', '.join(missing)}")
@@ -1486,27 +1430,20 @@ class EmotionMusicPlayerApp:
                 self.sp = None
                 return
 
-            # Authenticate Spotify if needed
-            # Authenticate Spotify if needed
             if not self.sp or not self.is_spotify_token_valid():
                 self.authenticate_spotify()
-                # If authentication fails, self.sp will be None.
                 if not self.sp:
-                    # --- FIX: Manually update the UI to show the error message ---
                     self.webcam_label.place_forget()  # Hide the camera view
                     self.progress_bar.pack_forget()   # Hide the progress bar
-                    
-                    # Show the placeholder (which authenticate_spotify configured with the error)
+
                     self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
-                    
-                    # Disable playback buttons since we are in an error state
+
                     self.play_pause_button.configure(state="disabled")
                     self.next_button.configure(state="disabled")
                     self.previous_button.configure(state="disabled")
                     
                     return # Exit the function
 
-        # Start detection after switching mode
         self.start_detection()
 
 
@@ -1517,8 +1454,11 @@ class EmotionMusicPlayerApp:
         print(f"Language switched to: {lang}")
         self.lang_label.configure(text=f"Language: {lang.capitalize()}")
         self.update_mode_button_visuals()
+        
         if self.app_state in [AppState.PLAYING, AppState.SUGGESTED] and self.target_emotion_for_playback:
             print(f"Finding new music for '{self.target_emotion_for_playback}' in '{lang}'...")
+            
+            # This simpler logic will always start new music automatically.
             if CONFIG["music_mode"] == "Local":
                 self.play_local_music()
             else:
@@ -1531,7 +1471,6 @@ class EmotionMusicPlayerApp:
         if not self.is_running:
             return
         self.process_analysis_queue()
-                # --- If an inquiry is pending and user does not reply in time, fallback to neutral ---
         try:
             if getattr(self, "inquiry_pending", None):
                 if time.time() - (self.inquiry_start_time or 0) >= self.inquiry_timeout_seconds:
@@ -1541,12 +1480,10 @@ class EmotionMusicPlayerApp:
                     self.inquiry_start_time = None
                     self.target_emotion_for_playback = "neutral"
 
-                    # Update the UI
                     self.target_emotion_label.configure(text="Playing For: Neutral (default)")
                     self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
                     self.placeholder_label.configure(text="No reply detected — playing calming music by default.")
 
-                    # Start neutral music
                     if CONFIG["music_mode"] == "Spotify":
                         self.suggest_spotify_playlist()
                     else:
@@ -1579,17 +1516,15 @@ class EmotionMusicPlayerApp:
 
     def on_closing(self):
         try:
-            # --- NEW: Release the player lock on the server ---
             print("Releasing player lock on the server...")
             requests.post(
-                "http://127.0.0.1:5000/release_lock",
+                f"{BASE_API_URL}/release_lock",
                 json={"email": self.user_email},
                 timeout=2  # Set a short timeout to not delay closing
             )
             print("Lock released.")
         except Exception as e:
             print(f"Could not release player lock: {e}")
-        # --- END OF NEW CODE ---
 
         self.is_running_monitor = False
         self.is_running = False
@@ -1615,12 +1550,9 @@ if __name__ == "__main__":
     user_email_arg = sys.argv[1] if len(sys.argv) > 1 else "guest@example.com"
     default_language_arg = sys.argv[2] if len(sys.argv) > 2 else "english"
 
-    # Spotify tokens (optional)
-    # Spotify tokens (optional)
     spotify_token_arg = sys.argv[3] if len(sys.argv) > 3 else ""
     spotify_refresh_arg = sys.argv[4] if len(sys.argv) > 4 else ""
     spotify_expires_at_arg = sys.argv[5] if len(sys.argv) > 5 else ""
-    # --- NEW: Receive premium status ---
     is_premium_arg = sys.argv[6] if len(sys.argv) > 6 else "False"
 
     app = EmotionMusicPlayerApp(
@@ -1629,7 +1561,6 @@ if __name__ == "__main__":
         default_language=default_language_arg
     )
 
-    # Pass tokens and premium status into app
     app.spotify_access_token = spotify_token_arg
     app.spotify_refresh_token = spotify_refresh_arg
     app.is_spotify_premium = (is_premium_arg.lower() == 'true') # Convert string to boolean

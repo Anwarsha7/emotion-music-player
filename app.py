@@ -52,7 +52,14 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 # Initialize Flask and Mongo
 # ----------------------
 app = Flask(__name__)
-# Add this block right after app = Flask(__name__)
+
+# --- SECURITY CONFIGURATIONS ---
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,  # Prevents client-side script access
+    SESSION_COOKIE_SAMESITE='Lax'  # Mitigates cross-site request forgery
+)
 
 app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
@@ -84,18 +91,15 @@ spotify_state_col.create_index([("user_email", 1), ("playlist_id", 1)], unique=T
 
 def get_reset_token(user, expires_sec=1800):
     s = Serializer(app.config['SECRET_KEY'])
-    # The token is created with the user's ID
     return s.dumps({'user_id': str(user['_id'])})
 
 def verify_reset_token(token):
     s = Serializer(app.config['SECRET_KEY'])
     try:
-        # The token is loaded with a max age of 30 minutes (1800 seconds)
         data = s.loads(token, max_age=1800)
         user_id = data.get('user_id')
     except:
         return None
-    # Find the user in the database with the ID from the token
     return users_col.find_one({'_id': ObjectId(user_id)})
 # In app.py
 
@@ -156,14 +160,12 @@ def _check_and_refresh_spotify_token(user_email):
             logging.error(f"Could not refresh Spotify token for {user_email}: {e}")
             return None, is_premium
     
-    # After ensuring token is valid, we can also re-check premium status
     try:
         sp = spotipy.Spotify(auth=spotify_token)
         user_info = sp.current_user()
         is_premium = user_info.get('product') == 'premium'
         users_col.update_one({"email": user_email}, {"$set": {"is_spotify_premium": is_premium}})
     except Exception:
-        # If this fails, we can rely on the last known status from the DB
         pass
 
     return spotify_token, is_premium
@@ -172,7 +174,6 @@ def _check_and_refresh_spotify_token(user_email):
 # ----------------------
 @app.route("/")
 def home():
-    # if logged in -> dashboard, else show landing page
     if "user" in session:
         return redirect(url_for("dashboard"))
     return render_template("landing.html")
@@ -183,12 +184,10 @@ def home():
 def register():
     form = RegistrationForm()
     if form.validate_on_submit(): # This checks if the form was submitted and is valid
-        # Check if user already exists
         if users_col.find_one({"email": form.email.data}):
             flash("Email already registered!", "danger")
             return redirect(url_for("register"))
 
-        # Hash the password and create the user
         hashed_pw = bcrypt.generate_password_hash(form.password.data).decode("utf-8")
         users_col.insert_one({
             "username": form.username.data,
@@ -256,8 +255,7 @@ def reset_token(token):
         users_col.update_one({"_id": user['_id']}, {"$set": {"password": hashed_pw}})
         flash('Your password has been updated! You are now able to log in.', 'success')
         return redirect(url_for('login'))
-    
-    # We will create reset_token.html in the next step
+
     return render_template('reset_token.html', form=form)
 # ----- Dashboard -----
 @app.route("/dashboard")
@@ -268,7 +266,6 @@ def dashboard():
     email = session["user"]["email"]
     user_data = users_col.find_one({"email": email}) or {}
 
-    # --- EXISTING LOGIC (No changes here) ---
     history = list(history_col.find({
         "user_email": email,
         "type": {"$in": ["local_play", "spotify_play"]}
@@ -284,11 +281,9 @@ def dashboard():
     if access_token and expires_at and time.time() < expires_at:
         spotify_linked = True
 
-    # --- UPDATED: Generate Cloudinary URL if a public_id exists ---
     user_profile_pic_url = None
     public_id = user_data.get("profile_pic_public_id")
     if public_id:
-        # This generates a 100x100 cropped URL
         user_profile_pic_url, _ = cloudinary_url(public_id, width=100, height=100, crop="fill", gravity="face")
 
     return render_template(
@@ -306,21 +301,20 @@ def dashboard():
 def vitals_player():
     if "user" not in session:
         return redirect(url_for("login"))
-    
+
     user_email = session["user"]["email"]
     user_data = users_col.find_one({"email": user_email})
     default_language = user_data.get("default_language", "english")
-    
-    # --- MODIFIED: Use the new helper function for a consistent check ---
-    spotify_token, _ = _check_and_refresh_spotify_token(user_email)
+
+    spotify_token, is_premium = _check_and_refresh_spotify_token(user_email)
     is_spotify_connected = True if spotify_token else False
-    # -----------------------------------------------------------------
-    
+
     return render_template(
         "vitals_player.html", 
         username=session["user"]["username"], 
         default_language=default_language,
-        is_spotify_connected=is_spotify_connected  # Pass the reliable status
+        is_spotify_connected=is_spotify_connected,
+        is_spotify_premium=is_premium  
     )
 
 # ----- Edit Profile Route -----
@@ -337,17 +331,28 @@ def edit_profile():
         if 'profile_pic' in request.files:
             file = request.files['profile_pic']
             if file and file.filename != '' and allowed_file(file.filename):
-                old_pic_public_id = user_data.get("profile_pic_public_id")
-                if old_pic_public_id:
-                    uploader.destroy(old_pic_public_id)
-                upload_result = uploader.upload(file, folder="profile_pics", public_id=str(uuid.uuid4()))
-                users_col.update_one(
-                    {"email": user_email}, 
-                    {"$set": {"profile_pic_public_id": upload_result['public_id']}}
-                )
-                flash("Profile picture updated!", "success")
+                try:
+                    upload_result = uploader.upload(
+                        file,
+                        folder="profile_pics",
+                        public_id=str(uuid.uuid4())
+                    )
 
-        # --- EXISTING PROFILE UPDATE LOGIC ---
+                    old_pic_public_id = user_data.get("profile_pic_public_id")
+
+                    users_col.update_one(
+                        {"email": user_email},
+                        {"$set": {"profile_pic_public_id": upload_result['public_id']}}
+                    )
+
+                    if old_pic_public_id:
+                        uploader.destroy(old_pic_public_id)
+
+                    flash("Profile picture updated!", "success")
+
+                except Exception as e:
+                    flash("Sorry, there was an error updating the profile picture. Please try again.", "danger")
+
         new_username = request.form["username"]
         new_email = request.form["email"]
         new_password = request.form["password"]
@@ -355,7 +360,6 @@ def edit_profile():
 
         if new_email != user_email and users_col.find_one({"email": new_email}):
             flash("That email address is already in use.", "danger")
-            # We need to regenerate the URL for the template if there's an error
             user_profile_pic_url = None
             public_id = user_data.get("profile_pic_public_id")
             if public_id:
@@ -374,8 +378,6 @@ def edit_profile():
         flash("Profile details updated successfully!", "success")
         return redirect(url_for("dashboard"))
 
-    # --- THIS PART IS FOR WHEN THE PAGE IS FIRST LOADED (GET request) ---
-    # It generates the URL to display the current picture
     user_profile_pic_url = None
     public_id = user_data.get("profile_pic_public_id")
     if public_id:
@@ -383,9 +385,6 @@ def edit_profile():
         
     return render_template("edit_profile.html", user=user_data, user_profile_pic_url=user_profile_pic_url)
 
-# Add this entire function to app.py
-
-# REPLACE your existing delete_profile_pic function with this one
 
 @app.route("/delete_profile_pic", methods=["POST"])
 def delete_profile_pic():
@@ -398,10 +397,8 @@ def delete_profile_pic():
     public_id = user_data.get("profile_pic_public_id")
     
     if public_id:
-        # 1. Delete the image from Cloudinary
         uploader.destroy(public_id)
-            
-        # 2. Remove the field from the database
+
         users_col.update_one(
             {"email": user_email},
             {"$unset": {"profile_pic_public_id": ""}}
@@ -429,15 +426,11 @@ def submit_feedback():
             flash("Thank you for your feedback! It has been sent.", "success")
         except Exception as e:
             flash(f"Sorry, an error occurred: {str(e)}", "danger")
-
-        # Redirect back to the landing page, to the contact section
-        # Assumes your landing page route is named "home". Change if necessary.
         return redirect(url_for("home") + "#contact")
 
 # ----- Logout -----
 @app.route("/logout")
 def logout():
-    # NEW: Release any web player locks on logout
     if "user" in session:
         users_col.update_one(
             {"email": session["user"]["email"], "player_lock.status": "web"},
@@ -467,32 +460,27 @@ def launch_app():
 
     user_email = session["user"]["email"]
     user_data = users_col.find_one({"email": user_email})
-    
-    # --- LOCKING MECHANISM (No changes here) ---
-    lock = user_data.get("player_lock", {"status": "none", "timestamp": 0})
-    is_stale = (time.time() - lock.get("timestamp", 0)) > 60 
 
-    if lock["status"] != "none" and not is_stale:
-        flash(f"Another player ({lock['status']} mode) is already active. Please close it first.", "danger")
+    lock = user_data.get("player_lock", {})
+    lock_status = lock.get("status")
+    lock_time = lock.get("timestamp", 0)
+
+    if lock_status != "none" and (time.time() - lock_time < 300):
+        flash("Another player is already active. If it crashed, please wait 5 minutes and try again.", "danger")
         return redirect(url_for("dashboard"))
 
     users_col.update_one(
         {"email": user_email},
         {"$set": {"player_lock": {"status": "desktop", "timestamp": time.time()}}}
     )
-    # --- END LOCKING MECHANISM ---
     
     default_language = user_data.get("default_language", "english")
-    
-    # --- MODIFIED: Use the new helper function for a consistent and clean check ---
+
     spotify_token, is_premium = _check_and_refresh_spotify_token(user_email)
 
-    # After the check, we get the latest user_data to pass the refresh token and expiry date
-    # This ensures that if the token was refreshed, we pass the new details.
     latest_user_data = users_col.find_one({"email": user_email}) 
     spotify_refresh = latest_user_data.get("spotify_refresh_token")
     spotify_expires_at = latest_user_data.get("spotify_expires_at")
-    # --- END OF MODIFICATION ---
 
     subprocess.Popen([
         sys.executable, "main.py",
@@ -539,7 +527,6 @@ def get_local_resume_state():
     if not all([language, emotion]):
         return jsonify({"error": "Missing language or emotion"}), 400
 
-    # We look for a special record in the history collection
     doc = history_col.find_one({
         "user_email": user_email,
         "type": "local_resume",
@@ -550,7 +537,6 @@ def get_local_resume_state():
     if doc and "last_song_index" in doc:
         return jsonify({"index": doc["last_song_index"]})
     else:
-        # If no record exists, start from the beginning of the playlist
         return jsonify({"index": 0})
 
 @app.route('/local-music/log-resume-state', methods=['POST'])
@@ -561,7 +547,6 @@ def log_local_resume_state():
     data = request.get_json()
     user_email = session["user"]["email"]
 
-    # Update or create a record for this specific playlist
     history_col.update_one(
         {
             "user_email": user_email,
@@ -578,8 +563,6 @@ def log_local_resume_state():
         upsert=True # This creates the document if it doesn't exist
     )
     return jsonify({"status": "success"})
-
-# --- END OF NEW ROUTES ---
 
 # --- END OF NEW ROUTES ---
 
@@ -650,7 +633,8 @@ def get_music_recommendation():
         if not chosen_playlist:
             app.logger.info("Primary search failed. Trying fallback search...")
             try:
-                results = sp.search(q=f"{emotion} playlist", type="playlist", limit=1)
+                fallback_query = f"{language} {emotion} playlist"
+                results = sp.search(q=fallback_query, type="playlist", limit=1)
                 items = results.get("playlists", {}).get("items", []) or []
                 if items:
                     pid = items[0]["id"]
@@ -725,10 +709,8 @@ def spotify_login():
     )
     sp_oauth = get_spotify_oauth(scope)
 
-    # Get the base URL first
     auth_url = sp_oauth.get_authorize_url()
 
-    # Manually add the parameter to force the login dialog
     auth_url += "&show_dialog=true"
 
     return redirect(auth_url)
@@ -750,13 +732,10 @@ def spotify_callback():
         token_info = sp_oauth.get_access_token(code, check_cache=False)
         user_email = session["user"]["email"]
 
-        # --- NEW: Check for premium status and save it ---
         sp = spotipy.Spotify(auth=token_info['access_token'])
         user_info = sp.current_user()
         is_premium = user_info.get('product') == 'premium'
-        # ------------------------------------------------
 
-        # --- MODIFIED: Added is_spotify_premium to the update ---
         users_col.update_one(
             {"email": user_email},
             {"$set": {
@@ -798,9 +777,6 @@ def unlink_spotify():
 # ----------------------
 # Run Flask
 # ----------------------
-# --- NEW VITALS PLAYER & LOCKING API ROUTES ---
-
-# --- NEW: API routes for saving/loading Spotify playback state ---
 
 @app.route("/log_spotify_state", methods=["POST"])
 def log_spotify_state():
@@ -838,15 +814,12 @@ def get_spotify_state(playlist_id):
     )
     
     if state:
-        # Convert ObjectId to string for JSON serialization
         state['_id'] = str(state['_id'])
         return jsonify(state)
     else:
-        return jsonify({}), 404 # Return empty object if no state found
+        return jsonify({}), 404  
         
-# --- END OF NEW API ROUTES ---
 
-# --- NEW API ROUTES FOR VITALS PLAYER SPOTIFY CONTROL ---
 
 @app.route("/spotify/devices", methods=["GET"])
 def get_spotify_devices():
@@ -952,12 +925,10 @@ def handle_connect():
 def handle_disconnect():
     print('Web client disconnected')
 
-# This is a separate channel for your ESP32 hardware to connect to
 @socketio.on('connect', namespace='/hardware')
 def handle_hardware_connect():
     print(f'Hardware client connected: {request.sid}')
 
-# This function will listen for 'vitals_update' messages from your ESP32
 @socketio.on('vitals_update', namespace='/hardware')
 def handle_vitals_update(data):
     """
@@ -966,17 +937,14 @@ def handle_vitals_update(data):
     """
     print(f"Received vitals from hardware: {data}")
 
-    # Use your existing function to figure out the emotion
     emotion = map_vitals_to_emotion(data.get('bpm', 0), data.get('hrv', 0))
 
-    # Prepare the final data to send to the webpage
     payload = {
         'bpm': data.get('bpm'),
         'hrv': data.get('hrv'),
         'detected_emotion': emotion
     }
 
-    # Broadcast this payload to the vitals_player.html webpage
     socketio.emit('vitals_from_server', payload, namespace='/hardware')
 
 if __name__ == "__main__":
