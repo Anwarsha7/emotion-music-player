@@ -50,14 +50,6 @@ AuraTune offers multiple ways to experience emotion-driven music:
 
 ---
 
-## 🏗️ System Architecture
-
-AuraTune’s architecture is modular, separating the frontend, backend, and AI processing:
-
-![Architecture Diagram](screenshots/architecture.png)  
-*Note: You can design this diagram in Canva or Excalidraw and add it as `screenshots/architecture.png`.*
-
----
 
 ## 🛠️ Tech Stack
 
@@ -177,12 +169,4 @@ Special thanks to these open-source projects:
 
 ---
 
-```
-
----
-
-✅ This version won’t throw formatting errors.  
-It’s clean, consistent with your sample, and fully ready to paste into GitHub.  
-
-Do you want me to also **generate the `architecture.png` diagram** (as a ready-to-use flowchart image) so you can just drop it into your `screenshots` folder?
-```
+ 
