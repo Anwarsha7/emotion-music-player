@@ -1,38 +1,74 @@
-# AuraTune - Music That Feels What You Feel
+# 🎵 AuraTune - Music That Feels What You Feel
 
 [![MIT License](https://img.shields.io/github/license/Anwarsha7/emotion-music-player?style=for-the-badge)](https://github.com/Anwarsha7/emotion-music-player/blob/main/LICENSE)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Anwarsha7/emotion-music-player?style=for-the-badge)
 ![GitHub repo size](https://img.shields.io/github/repo-size/Anwarsha7/emotion-music-player?style=for-the-badge)
 
-AuraTune is an intelligent music player that uses AI to create personalized playlists based on your real-time emotional state. This final year project demonstrates the intersection of artificial intelligence, web development, and user experience to deliver music that truly resonates with your mood.
-
-![AuraTune Desktop Player](screenshots/camera-player.png)
+![Python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge&logo=python)
+![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow)
+![Spotify](https://img.shields.io/badge/Spotify-1DB954?style=for-the-badge&logo=spotify)
+![MongoDB](https://img.shields.io/badge/MongoDB-4DB33D?style=for-the-badge&logo=mongodb)
+![CustomTkinter](https://img.shields.io/badge/CustomTkinter-008080?style=for-the-badge)
 
 ---
 
-## 📸 Screenshots
+AuraTune is an intelligent music player that uses **AI-driven emotion detection** and **biometric signals** to create personalized playlists in real time.  
+Developed as my **Final Year B.Tech Project**, AuraTune represents the intersection of **artificial intelligence, human emotions, and immersive user experience**.
 
-Here's a look at the AuraTune application, from the landing page to the different player interfaces.
+![AuraTune Desktop Player](screenshots/camera-player.png)
 
-![Landing Page](screenshots/landing.png)
+ ## 📸 Screenshots
+
+![Landing Page](screenshots/landing.png)  
 *The official landing page for AuraTune.*
 
-![User Dashboard](screenshots/dashboard.png)
+![User Dashboard](screenshots/dashboard.png)  
 *The personalized user dashboard after logging in.*
 
-![Vitals Player](screenshots/vitals-player.png)
+![Vitals Player](screenshots/vitals-player.png)  
 *The web-based player that uses biometric data from hardware.*
 
 ---
 
 ## ✨ Key Features
 
-- **AI Emotion Detection:** Utilizes a webcam to perform real-time facial emotion analysis (Happy, Sad, Angry, Neutral) using the DeepFace library.
-- **Biometric Sensing Mode:** A web-based player that connects via WebSockets to hardware to generate playlists from live BPM and HRV data.
-- **Dynamic Playlists:** Automatically curates playlists from either local music files or a Spotify account.
-- **Spotify Integration:** Securely links to Spotify to unlock mood-based playlists, supporting both Free and Premium users.
-- **Personalized Dashboard:** Track your listening history and view statistics on your most detected emotions over time.
-- **Voice Commands:** Control the desktop player with voice commands for playback, volume, and mode selection.
+AuraTune has **three powerful modes of interaction**:
+
+### 🎭 Emotion Detection Mode
+- Real-time facial emotion analysis via **DeepFace** (Happy, Sad, Angry, Neutral).
+- Webcam-powered detection for dynamic playlist curation.
+
+### ❤️ Biometric Sensing Mode
+- Web-based vitals player connected via **Flask-SocketIO**.  
+- Uses **HRV (Heart Rate Variability)** & **BPM** from hardware sensors.  
+- Generates playlists that match physiological states.
+
+### 🎶 Music Playback Modes
+- **Local Mode:** Play curated playlists from local files.  
+- **Spotify Mode:** Integrates with Spotify (Free & Premium accounts).  
+- Dynamic mood-based playlist generation with seamless playback.  
+
+Additional features:
+- 🗂 Personalized dashboard with emotion statistics & history  
+- 🎙 Voice commands for desktop player control  
+- 🔒 Secure authentication & profile management  
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    A[Camera Input] --> B[DeepFace Model]
+    B --> C[Emotion Detected]
+    C --> D[Playlist Generator]
+    D --> E[Spotify API / Local Files]
+
+    F[Hardware Vitals] --> G[Flask-SocketIO]
+    G --> H[Biometric Data Processing]
+    H --> D
+
 
 ## 🛠️ Tech Stack
 
@@ -72,32 +108,7 @@ pip install -r requirements.txt
 
 **4. Configure Environment Variables**
 
-Create a file named `.env` in the root of the project and fill in your own credentials. Use the following template:
-
-```env
-# MongoDB Connection String
-MONGO_URI="your_mongodb_connection_string"
-
-# A long, random string for Flask's secret key
-SECRET_KEY="a_very_long_and_random_secret_key"
-
-# Spotify API Credentials
-SPOTIPY_CLIENT_ID="your_spotify_client_id"
-SPOTIPY_CLIENT_SECRET="your_spotify_client_secret"
-SPOTIPY_REDIRECT_URI="[http://127.0.0.1:5000/callback](http://127.0.0.1:5000/callback)"
-
-# Gmail Credentials for Feedback & Password Reset
-MAIL_SERVER="smtp.gmail.com"
-MAIL_PORT=587
-MAIL_USE_TLS=True
-MAIL_USERNAME="your_gmail_address@gmail.com"
-MAIL_PASSWORD="your_gmail_app_password"
-
-# Cloudinary Credentials for Profile Pictures
-CLOUDINARY_CLOUD_NAME="your_cloudinary_cloud_name"
-CLOUDINARY_API_KEY="your_cloudinary_api_key"
-CLOUDINARY_API_SECRET="your_cloudinary_api_secret"
-```
+Create a file named `.env` in the root of the project and fill in your own credentials. Use the `.env.example` file as a template.
 
 **5. Run the Application**
 ```bash
@@ -105,6 +116,21 @@ python app.py
 ```
 The web application will be available at `http://127.0.0.1:5000`.
 
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome! Please feel free to fork this repo and submit a pull request. For more details, see the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+## 🔭 Future Scope
+This project has a strong foundation with many possibilities for future development:
+- **🎧 More Music Integrations:** Adding support for other services like Apple Music or YouTube Music.
+- **📱 Mobile Application:** Developing a cross-platform mobile app version using a framework like Flutter or React Native.
+- **🧠 Expanded Emotion Model:** Training or integrating a model to recognize a wider range of emotions, such as Fear, Surprise, and Disgust.
+
 ## 👤 About the Project
 
 This was developed as my final year project. I am passionate about the intersection of AI and user experience, and AuraTune is the culmination of my effort to build a smarter, more intuitive music player.
+
+## 🙏 Acknowledgements
+This project would not have been possible without these incredible open-source libraries:
+- [DeepFace](https://github.com/serengil/deepface) for its comprehensive facial attribute analysis.
+- [Spotipy](https://spotipy.readthedocs.io/) for its powerful and easy-to-use Spotify API wrapper.
+- [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) for enabling modern and beautiful Python GUIs.
