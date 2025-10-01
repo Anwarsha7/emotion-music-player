@@ -90,10 +90,6 @@ python app.py
 ```
 The web application will be available at `http://127.0.0.1:5000`.
 
-## 👥 About the Team
+## 👤 About the Project
 
-This was developed as a final year project by:
-- Jazeera
-- Rishana
-- Ihsan
-- Anwarsha
+This was developed as my final year project. I am passionate about the intersection of AI and user experience, and AuraTune is the culmination of my effort to build a smarter, more intuitive music player. 
