@@ -6,7 +6,7 @@
 
 AuraTune is an intelligent music player that uses AI to create personalized playlists based on your real-time emotional state. This final year project demonstrates the intersection of artificial intelligence, web development, and user experience to deliver music that truly resonates with your mood.
 
-![AuraTune Desktop Player](screenshots/camera-player.jpg)
+![AuraTune Desktop Player](screenshots/camera-player.png)
 
 ---
 
@@ -14,10 +14,10 @@ AuraTune is an intelligent music player that uses AI to create personalized play
 
 Here's a look at the AuraTune application, from the landing page to the different player interfaces.
 
-![Landing Page](screenshots/landing.jpg)
+![Landing Page](screenshots/landing.png)
 *The official landing page for AuraTune.*
 
-![User Dashboard](screenshots/dashboard.jpg)
+![User Dashboard](screenshots/dashboard.png)
 *The personalized user dashboard after logging in.*
 
 ![Vitals Player](screenshots/vitals-player.png)
