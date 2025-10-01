@@ -1,8 +1,8 @@
 # AuraTune - Music That Feels What You Feel
 
-![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
-![Framework](https://img.shields.io/badge/Flask-3.x-lightgrey.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+[![MIT License](https://img.shields.io/github/license/Anwarsha7/emotion-music-player?style=for-the-badge)](https://github.com/Anwarsha7/emotion-music-player/blob/main/LICENSE)
+![GitHub last commit](https://img.shields.io/github/last-commit/Anwarsha7/emotion-music-player?style=for-the-badge)
+![GitHub repo size](https://img.shields.io/github/repo-size/Anwarsha7/emotion-music-player?style=for-the-badge)
 
 AuraTune is an intelligent music player that uses AI to create personalized playlists based on your real-time emotional state. This final year project demonstrates the intersection of artificial intelligence, web development, and user experience to deliver music that truly resonates with your mood.
 
