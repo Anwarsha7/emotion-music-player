@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login - Emotion Music Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+    body { background: #111; color: white; min-height: 100vh; overflow-x: hidden; }
+    #particles-js { position: absolute; width: 100%; height: 100%; background: linear-gradient(to left, #071363 0%, #071936 100%); z-index: 1; touch-action: none; }
+    .login-container { position: relative; z-index: 2; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; pointer-events: none; }
+    .login-form {
+      width: 100%; max-width: 420px; padding: 40px 35px; background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column;
+      gap: 14px; position: relative; pointer-events: auto;
+    }
+    .logo {
+      text-align: center; font-size: 2rem; font-weight: 700; background: linear-gradient(to right, #8009ef, #e276e4, #7246ca);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;
+    }
+    .tagline { text-align: center; font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); margin-bottom: 6px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; position: relative; }
+    label { font-size: 0.9rem; color: rgba(255, 255, 255, 0.85); }
+    input { background-color: rgba(255, 255, 255, 0.92); border: 1px solid #ddd; border-radius: 10px; padding: 12px 15px; font-size: 1rem; color: #333; }
+    input:focus { outline: 2px solid #5a7bcf; }
+    .form-group i {
+    position: absolute;
+    right: 15px;
+    top: 70%; /* Changed from 38px */
+    transform: translateY(-50%); /* Changed from 40% */
+    color: #555;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    }
+    .form-group i:hover { color: #000; }
+    /* Add this new rule to your CSS */
+    input#password {
+        padding-right: 45px;
+    }
+    button { margin-top: 4px; width: 100%; padding: 12px; background-color: #2e4a9e; border: none; border-radius: 10px; color: #fff; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: background-color 0.3s ease; }
+    button:hover { background-color: #3f60c4; }
+    .register-link, .home-link { text-align: center; font-size: 0.9rem; color: rgba(255,255,255,0.8); }
+    .register-link a, .home-link a { color: #b3c5ef; font-weight: 600; text-decoration: none; }
+    .register-link a:hover, .home-link a:hover { text-decoration: underline; }
+    .home-link { margin-top: -5px; } /* Adjust spacing */
+    .home-link a i { margin-right: 5px; }
+    .messages { text-align: center; margin-top: 10px; padding: 12px; border-radius: 8px; font-weight: 500; background: rgba(255, 77, 77, 0.15); border: 1px solid rgba(255, 77, 77, 0.2); animation: shake 0.5s ease-in-out; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
+    @media (max-width: 480px) { .login-form { padding: 30px 25px; border-radius: 16px; } .logo { font-size: 1.6rem; } input { padding: 12px; } button { padding: 12px; } }
+    /* Add this to the <style> section of login.html */
+
+    .forgot-password-link a {
+        color: #d1c4e9; /* Example: A light purple color */
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .forgot-password-link a:hover {
+        text-decoration: underline;
+        color: #ffffff; /* Example: White on hover */
+    }
+  
+  </style>
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+</head>
+<body>
+  <section>
+    <div id="particles-js"></div>
+    <div class="login-container">
+      <div class="login-form">
+        <div class="logo">AuraTune</div>
+        <p class="tagline">Music Powered by Emotion</p>
+        <form method="POST">
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <i class="fa-solid fa-eye" id="togglePassword"></i>
+          </div>
+          <button type="submit">Login</button>
+        </form>
+        <div class="forgot-password-link">
+            <p><a href="{{ url_for('request_reset') }}">Forgot Password?</a></p>
+        </div>
+        <div class="register-link">
+            <p>Don’t have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+        </div>
+
+        <div class="home-link">
+          <p><a href="{{ url_for('home') }}"><i class="fas fa-home"></i> Back to Home</a></p>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="messages">
+              {% for category, message in messages %}
+                <p>{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      particlesJS("particles-js", { "particles": { "number": { "value": 80, "density": { "enable": true, "value_area": 700 }}, "color": { "value": ["#ffffff", "#ff00ff", "#00ffff", "#ffd700", "#ff4500", "#7fff00", "#93FFE8", "#4927F5", "#7D0552", "#FF69B4", "#1E90FF", "#32CD32"]}, "shape": { "type": "circle" }, "opacity": { "value": 0.7 }, "size": { "value": 3, "random": true }, "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.4, "width": 1 }, "move": { "enable": true, "speed": 5, "direction": "none", "random": false, "straight": false, "out_mode": "out" }}, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": true, "mode": "push" }, "resize": true }, "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 1 } }, "push": { "particles_nb": 4 }}}, "retina_detect": true });
+      const togglePassword = document.querySelector('#togglePassword');
+      const passwordInput = document.querySelector('#password');
+      if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function () {
+          const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+          passwordInput.setAttribute('type', type);
+          this.classList.toggle('fa-eye-slash');
+        });
+      }
+    });
+  </script>
+</body>
+</html>

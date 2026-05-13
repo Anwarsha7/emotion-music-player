@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Emotion Music Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Your existing CSS goes here - no changes needed */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: linear-gradient(135deg, #6e8efb, #a777e3); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { background-color: rgba(255, 255, 255, 0.9); border-radius: 15px; box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); width: 100%; max-width: 450px; overflow: hidden; position: relative; }
+        .header { background: linear-gradient(to right, #6e8efb, #a777e3); color: white; text-align: center; padding: 25px 20px; }
+        .header h2 { font-weight: 600; font-size: 28px; margin-bottom: 5px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .form-container { padding: 25px; }
+        .input-group { margin-bottom: 20px; position: relative; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #444; font-size: 14px; }
+        .input-group i { position: absolute; left: 15px; top: 38px; color: #a777e3; }
+        .input-group input, .input-group select { width: 100%; padding: 12px 15px 12px 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; transition: all 0.3s; }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #6e8efb; box-shadow: 0 0 0 2px rgba(110, 142, 251, 0.2); }
+        button { width: 100%; padding: 14px; background: linear-gradient(to right, #6e8efb, #a777e3); border: none; border-radius: 8px; color: white; font-weight: 600; font-size: 16px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 10px rgba(110, 142, 251, 0.3); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(110, 142, 251, 0.4); }
+        .login-link, .home-link { text-align: center; margin-top: 25px; font-size: 14px; color: #555; }
+        .login-link a, .home-link a { color: #6e8efb; text-decoration: none; font-weight: 600; transition: all 0.2s; }
+        .login-link a:hover, .home-link a:hover { color: #a777e3; text-decoration: underline; }
+        .home-link { margin-top: 10px; }
+        .home-link a i { margin-right: 5px; }
+        .messages { padding: 10px 25px; text-align: center; }
+        .success, .danger { background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 14px; }
+        .success { color: #28a745; }
+        .danger { color: #dc3545; } /* Added for flashed messages */
+        .music-icon { text-align: center; margin: 10px 0; color: #a777e3; }
+        .form-error { color: #dc3545; font-size: 0.8rem; margin-top: 4px; } /* Style for validation errors */
+        @media (max-width: 480px) { .container { border-radius: 10px; } .header { padding: 20px 15px; } .form-container { padding: 20px 15px; } }
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, #6e8efb, #a777e3);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(110, 142, 251, 0.3);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(110, 142, 251, 0.4);
+        }
+    </style>
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Create Account</h2>
+            <p>Join AuraTune to experience music like never before</p>
+        </div>
+        <div class="music-icon"><i class="fas fa-music fa-2x"></i></div>
+
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }} <div class="form-container">
+                <div class="input-group">
+                    {{ form.username.label }}
+                    <i class="fas fa-user"></i>
+                    {{ form.username(placeholder="Enter your username") }}
+                    {% if form.username.errors %}
+                        <div class="form-error">
+                            {% for error in form.username.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="input-group">
+                    {{ form.email.label }}
+                    <i class="fas fa-envelope"></i>
+                    {{ form.email(placeholder="Enter your email") }}
+                     {% if form.email.errors %}
+                        <div class="form-error">
+                            {% for error in form.email.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="input-group">
+                    {{ form.password.label }}
+                    <i class="fas fa-lock"></i>
+                    {{ form.password(placeholder="Create a strong password") }}
+                    {% if form.password.errors %}
+                        <div class="form-error">
+                            {% for error in form.password.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                 <div class="input-group">
+                    {{ form.confirm_password.label }}
+                    <i class="fas fa-lock"></i>
+                    {{ form.confirm_password(placeholder="Confirm your password") }}
+                    {% if form.confirm_password.errors %}
+                        <div class="form-error">
+                            {% for error in form.confirm_password.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="input-group">
+                    {{ form.language.label }}
+                    <i class="fas fa-globe"></i>
+                    {{ form.language() }}
+                </div>
+
+                {{ form.submit(class="btn-submit") }}
+
+                <div class="login-link">
+                    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+                </div>
+                <div class="home-link">
+                    <p><a href="{{ url_for('home') }}"><i class="fas fa-home"></i> Back to Home</a></p>
+                </div>
+            </div>
+        </form>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="messages">
+                    {% for category, message in messages %}
+                        <p class="{{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>
