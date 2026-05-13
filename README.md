@@ -7,7 +7,7 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-4DB33D?style=for-the-badge&logo=mongodb)
 [![MIT License](https://img.shields.io/github/license/Anwarsha7/emotion-music-player?style=for-the-badge)](https://github.com/Anwarsha7/emotion-music-player/blob/main/LICENSE)
 
-AuraTune is an intelligent music player that uses **AI-powered emotion detection** and **biometric sensing** to create playlists that match your mood in real time.  
+AuraTune is an intelligent music player that uses **AI-powered emotion detection* and *vitals-based mood analysis** to create playlists that match your mood in real time.  
 Developed as my **Final Year B.Tech Project**, AuraTune demonstrates the seamless blend of **artificial intelligence, music, and user experience**.  
 
 ![AuraTune Desktop Player](screenshots/camera-player.png)  
@@ -26,7 +26,7 @@ Here's a look at the AuraTune application, from the landing page to the differen
 *The personalized user dashboard after logging in.*
 
 ![Vitals Player](screenshots/vitals-player.png)  
-*The web-based player that uses biometric data from hardware.*
+*The web-based vitals player using BPM and HRV values for rule-based emotion detection.*
 
 ---
 
@@ -39,9 +39,10 @@ AuraTune offers multiple ways to experience emotion-driven music:
 - Smart "Inquiry System" for Sad/Angry moods, giving the user choice to reinforce or change their mood.
 
 ### ❤️ Vitals Mode
-- A **web-based player** connected to biometric hardware (e.g., ESP32 via WebSockets).
-- Generates playlists based on **live Heart Rate Variability (HRV)** and **Beats Per Minute (BPM)**.
-- Includes an **Automatic Demo Mode** for showcasing functionality without hardware.
+- A web-based player with manual BPM and HRV input.
+- Uses a rule-based emotion detection system to classify emotions such as Happy, Sad, Angry, and Neutral.
+- Generates playlists based on the detected emotional state from vitals data.
+- Includes an intuitive interface for testing and demonstration without external hardware.
 
 ### 🎶 Spotify & Local Playback
 - Curates playlists from **local music files** or your **Spotify account**.
